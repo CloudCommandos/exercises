@@ -11,12 +11,12 @@ Additionally, your image will also need to be configured to support multiple-IP 
 Auto link up for Corosync requires the binding address to be part of the node's subnet. 
 By default GCP images will produce instances with a netmask of /32, which is a single IP network.
 Use the MULTI_IP_SUBNET option to enable multiple-IP subnets.
-'''
+```
 gcloud compute images create your-nested-vm-enabled-image \
   --source-disk your-disk-name --source-disk-zone asia-southeast1-b \
   --licenses "https://www.googleapis.com/compute/v1/projects/vm-options/global/licenses/enable-vmx" \
   --guest-os-features MULTI_IP_SUBNET
-'''
+```
 Ref 1: https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
 Ref 2: https://cloud.google.com/vpc/docs/create-use-multiple-interfaces
 

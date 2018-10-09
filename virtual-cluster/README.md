@@ -27,6 +27,7 @@ Checkpoints
 ---
 1. 5 Oct: Status update 1
 1. 12 Oct: Status update 2
-1. 19 Oct: End of exercise
+1. 19 Oct: Status update 3
+1. 26 Oct: End of exercise
 
 May the odds be ever in your favour. Good luck!

@@ -56,9 +56,53 @@ Once the installation is completed, open the link "https://yourpublicipaddress:8
 At the VM instances page, select the vm instance and select "view network details". "VPC network" will open up and select "Firewall rules", then select "Create firewall rule". Select "All instances in the network" under the Targets option. Set IP range as "0.0.0.0/0".
 Specify Port 8006 for TCP. Once completed, create the firewall rule. Try to login again and the browser will likely show "Your connection is not private". Click "Advance" and then proceed. The browser will now proceed to the Proxmox web interface.  
 
+## Setup Cluster
 
+Once the proxmox is installed, the cluster can be now created on a node. Select a node and use the command `pvecm create mycluster`. In this case, the cluster will reside in node1.
 
-Refer to: https://pve.proxmox.com/wiki/Multicast_notes#Use_unicast_.28UDPU.29_instead_of_multicast.2C_if_all_else_fails
+The command above will then create a cluster and using a command `pvecm status` allows you to check the cluster status.
 
+After encountering issued during the setup on the a second node, certain setting was required on the `/etc/pve/corosync.conf` file. Google Cloud does not allow multicast and thus, a second node is unable to add to the cluster. Therefore, unicast is utilise to allow the adding of node to the cluster.
 
-Store iso image at `/var/lib/vz/template/iso`
+To use Unicast (UDPU), add `transport= udpu` in the totem{} stanza in the `/etc/pve/corosync.conf` file. Restart the service to allow the new configuration to initialise. The corosync service can be restart with `systemctl restart corosync.service`.
+
+Refer to: https://pve.proxmox.com/wiki/Multicast_notes#Use_unicast_.28UDPU.29_instead_of_multicast.2C_if_all_else_fails for Unicast setup on Proxmox.
+
+## Adding Cluster
+
+Once the cluster is setup correctly, ssh into the nodes that needs to be added to the cluster. In this case, node2 and node3 will be added to the cluster.
+
+ssh into node2 and node3 respectively, use the command `pvecm add ip.address.of.node1` e.g pvecm add `10.148.0.2`. This will allow the nodes to add to the cluster created at node1.
+
+To verify if the nodes are added, use the command `pvecm status`
+
+An example of the `pvecm status` output on node1 is as shown:
+```
+root@node1:~# pvecm status
+Quorum information
+------------------
+Date:             Tue Oct  9 03:12:42 2018
+Quorum provider:  corosync_votequorum
+Nodes:            3
+Node ID:          0x00000001
+Ring ID:          1/76
+Quorate:          Yes
+
+Votequorum information
+----------------------
+Expected votes:   3
+Highest expected: 3
+Total votes:      3
+Quorum:           2
+Flags:            Quorate
+
+Membership information
+----------------------
+    Nodeid      Votes Name
+0x00000001          1 10.148.0.2 (local)
+0x00000002          1 10.148.0.3
+0x00000003          1 10.148.0.4
+```
+
+## Creating inner VM
+Firstly, download the required ISO image and store the image at `/var/lib/vz/template/iso`

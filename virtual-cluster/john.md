@@ -57,7 +57,7 @@ Leave the Linux Bridge port as empty first.
 Before you create an inner VM, make sure that you have the iso file of the image that the inner VM should be based on. Download your iso image and place it in the directory /var/lib/vz/template/iso/. You will then be able to select the iso file during the creation of the inner VM. The image used for this activity is obtained as such:
 
 ```
-wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-netinst.iso
+wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-xfce-CD-1.iso
 ```
 
 

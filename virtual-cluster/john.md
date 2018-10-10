@@ -11,14 +11,20 @@ Additionally, your image will also need to be configured to support multiple-IP 
 Auto link up for Corosync requires the binding address to be part of the node's subnet. 
 By default GCP images will produce instances with a netmask of /32, which is a single IP network.
 Use the MULTI_IP_SUBNET option to enable multiple-IP subnets.
+
+Create a disk based on Debian 9  on GCP. Then run the following command in Google Cloud Shell.
+Replace the values with the actual values used.
+
 ```
 gcloud compute images create your-nested-vm-enabled-image \
   --source-disk your-disk-name --source-disk-zone asia-southeast1-b \
   --licenses "https://www.googleapis.com/compute/v1/projects/vm-options/global/licenses/enable-vmx" \
   --guest-os-features MULTI_IP_SUBNET
 ```
-Ref 1: https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
-Ref 2: https://cloud.google.com/vpc/docs/create-use-multiple-interfaces
+
+References:
+  1. https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
+  1. https://cloud.google.com/vpc/docs/create-use-multiple-interfaces
 
 Also create a new Virtual Private Cloud (VPC) network. 
 This is to allow you to create the instances with two network interfaces on separate networks, which is required for HA.
@@ -48,16 +54,74 @@ After setting the firewall rule, you can access the Proxmox VE user interface vi
 You can create a cluster using Proxmox. At the Proxmox UI, select 'Datacenter' on the left side bar. 
 Then select 'cluster' on the main portview's menu and click on the 'Create Cluster' button.
 
+Alternatively, you can use the command from you first node:
+```
+pvecm create cluster-name
+```
+
+Due to GCP blocking multicast and that Corosync uses multicast by default. We will need to configure Corosync to use unicast instead.
+Edit /etc/pve/corosync.conf and add the property ```transport: udpu``` into totem so that the file will have something like this:
+```
+logging {
+  debug: off
+  to_syslog: yes
+}
+
+nodelist {
+  node {
+    name: instance-1
+    nodeid: 1
+    quorum_votes: 1
+    ring0_addr: 10.148.10.1
+  }
+}
+
+quorum {
+  provider: corosync_votequorum
+}
+
+totem {
+  cluster_name: nice-cluster
+  config_version: 1
+  interface {
+    bindnetaddr: 10.148.10.1
+    ringnumber: 0
+  }
+  ip_version: ipv4
+  secauth: on
+  version: 2
+  transport: udpu
+}
+```
+
+Restart pve-cluster service and /etc/pve/corosync.conf will replace /etc/corosync/corosync.conf
+```
+systemctl restart pve-cluster
+```
+Then restart corosync service
+```
+systemctl restart corosync
+```
+
+On the other nodes run the following command to add them to the cluster.
+If your /etc/hosts is not configured to include your node1's record, use node1's internal IP instead.
+```
+pvecm add instance-1
+```
 
 ## Creating Inner VMs
-You need to create a Linux Bridge first before you can create an inner VM using Proxmox. At the Proxmox UI, go to System > Network under your outer VM instance and click on the Create button.
+You need to create a Linux Bridge first before you can create an inner VM using Proxmox. 
+At the Proxmox UI, go to System > Network under your outer VM instance and click on the Create button.
 ### WARNING! Do not set eth0 as your Linux Bridge's port! This will render your outer VM as inaccessible.
 Leave the Linux Bridge port as empty first.
 
-Before you create an inner VM, make sure that you have the iso file of the image that the inner VM should be based on. Download your iso image and place it in the directory /var/lib/vz/template/iso/. You will then be able to select the iso file during the creation of the inner VM. The image used for this activity is obtained as such:
+Make sure that you have the iso file of the image that the inner VM should be based on. 
+Download your iso image and place it in the directory /var/lib/vz/template/iso/. 
+You will then be able to select the iso file during the creation of the inner VM through Proxmox. 
+You can download the iso file with:
 
 ```
-wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-xfce-CD-1.iso
+wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-netinst.iso
 ```
 
 

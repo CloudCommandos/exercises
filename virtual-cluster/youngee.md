@@ -47,9 +47,9 @@ Create VPC network, choose a your region and IP range
 
 ## Installing Proxmox
 
-Reference to https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_Stretch for installation of Proxmox on Debian Stretch.
+Refer to: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_Stretch for installation of Proxmox on Debian Stretch.
 
-ssh into the vm and following the instructions from the above link.
+ssh into the vm and following the instructions from the link above.
 
 Once the installation is completed, open the link "https://yourpublicipaddress:8006". The browser will not be able to display the Proxmox web interface. This is caused by the firewall rules.
 
@@ -65,6 +65,49 @@ The command above will then create a cluster and using a command `pvecm status` 
 After encountering issued during the setup on the a second node, certain setting was required on the `/etc/pve/corosync.conf` file. Google Cloud does not allow multicast and thus, a second node is unable to add to the cluster. Therefore, unicast is utilise to allow the adding of node to the cluster.
 
 To use Unicast (UDPU), add `transport= udpu` in the totem{} stanza in the `/etc/pve/corosync.conf` file. Restart the service to allow the new configuration to initialise. The corosync service can be restart with `systemctl restart corosync.service`.
+
+  Example of the `/etc/pve/corosync.conf`:
+  ```
+  logging {
+  debug: off
+  to_syslog: yes
+}
+nodelist {
+  node {
+    name: node1
+    nodeid: 1
+    quorum_votes: 1
+    ring0_addr: 10.148.0.2
+  }
+  node {
+    name: node2
+    nodeid: 2
+    quorum_votes: 1
+    ring0_addr: 10.148.0.3
+  }
+  node {
+    name: node3
+    nodeid: 3
+    quorum_votes: 1
+    ring0_addr: 10.148.0.4
+  }
+}
+quorum {
+  provider: corosync_votequorum
+}
+totem {
+  cluster_name: mycluster
+   config_version: 3
+   interface {
+     bindnetaddr: 10.148.0.2
+     ringnumber: 0
+   }
+   ip_version: ipv4
+   secauth: on
+   transport: udpu
+   version: 2
+ }
+  ```
 
 Refer to: https://pve.proxmox.com/wiki/Multicast_notes#Use_unicast_.28UDPU.29_instead_of_multicast.2C_if_all_else_fails for Unicast setup on Proxmox.
 
@@ -104,5 +147,116 @@ Membership information
 0x00000003          1 10.148.0.4
 ```
 
+## Setup Ceph for High-Availability
+Ceph is software designed to provide highly scalable object, block and file-based storage under a unified system.
+
+Before the installation of Ceph, there are additional task to carry out on Google Cloud. Create a empty disk for each node. The empty disk will be used for the Ceph setup. Additionally, create another VPC network and set a IP range of your choice. Set the region to the same region as the VM instance, in this case is 'asia-southeast1'. Apply the same set of firewall rules as the 'default' VPC network setting.
+
+Before the installation of Ceph, update the Debian packages with `apt-get update && apt-get upgrade`.
+
+If there is a error message shown during the update such as:
+```
+W: The repository 'https://enterprise.proxmox.com/debian/pve stretch Release' does not have a Release file.
+N: Data from such a repository can't be authenticated and is therefore potentially dangerous to use.
+N: See apt-secure(8) manpage for repository creation and user configuration details.
+E: Failed to fetch https://enterprise.proxmox.com/debian/pve/dists/stretch/pve-enterprise/binary-amd64/Packages  40
+1  Unauthorized
+E: Some index files failed to download. They have been ignored, or old ones used instead.
+```
+
+Edit the file, `/etc/apt/source.list.d/pve-enterprise.list` and change the `https` to `http`.
+
+Once the update and upgrade is completed, Ceph can be now install. To install Proxmox Ceph, use the command `pveceph install`.
+
+Once the installation is completed, use this command on **node1** to initialise Ceph `pveceph init --network ipaddressnetworkofeth1/prefix`. e.g `pveceph init --network 192.168.1.0/24` The IP address used is network IP address which was additionally created earlier on the Google Cloud, which should be the nic1 on the VM instances.
+
+Next, use `pveceph createmon` to create the monitor on each node.
+
+Go to the web interface of node1 Proxmox and under the Ceph tab, the status will show HEALTH_OK and under Monitor tab, the 3 nodes should be shown as well. Verify the rest of the 2 nodes, which should also include all the 3 nodes under its Ceph tab. If Ceph its not installed, you will not be able to enter the Ceph tab on the web interface.
+
+At the Configuration tab, the 3 nodes and its respective IP address show be shown. All monitors are up now. Example of the Configuration text:
+```
+[global]
+	 auth client required = cephx
+	 auth cluster required = cephx
+	 auth service required = cephx
+	 cluster network = 192.168.1.0/24
+	 fsid = 2d6b97df-9c84-47a3-8d16-9147c7f58ee6
+	 keyring = /etc/pve/priv/$cluster.$name.keyring
+	 mon allow pool delete = true
+	 osd journal size = 5120
+	 osd pool default min size = 2
+	 osd pool default size = 3
+	 public network = 192.168.1.0/24
+
+[osd]
+	 keyring = /var/lib/ceph/osd/ceph-$id/keyring
+
+[mon.node1]
+	 host = node1
+	 mon addr = 192.168.1.2:6789
+
+[mon.node3]
+	 host = node3
+	 mon addr = 192.168.1.4:6789
+
+[mon.node2]
+	 host = node2
+	 mon addr = 192.168.1.3:6789
+```
+
+Subsequently, create an OSD for each node. This can be done via the web interface under Ceph's OSD tab or using command `pveceph createosd /dev/yourdiskpartition`. Use the empty disk which was created earlier and attached to the VM instances. In this case, the empty disk is mounted as `/dev/sdb`. Thus, using command line will be `pveceph createosd /dev/sdb`. Carry out this command on all 3 nodes.
+Example of the output for `pveceph createosd /dev/sdb`:
+```
+root@node1:~# pveceph createosd /dev/sdb
+command '/sbin/zpool list -HPLv' failed: open3: exec of /sbin/zpool list -HPLv failed: No such file or directory at /usr/share/perl5/PVE/Tools.pm line 429.
+
+create OSD on /dev/sdb (bluestore)
+Creating new GPT entries.
+GPT data structures destroyed! You may now partition the disk using fdisk or
+other utilities.
+Creating new GPT entries.
+The operation has completed successfully.
+Setting name!
+partNum is 0
+REALLY setting name!
+The operation has completed successfully.
+Setting name!
+partNum is 1
+REALLY setting name!
+The operation has completed successfully.
+The operation has completed successfully.
+meta-data=/dev/sdb1              isize=2048   agcount=4, agsize=6400 blks
+         =                       sectsz=4096  attr=2, projid32bit=1
+         =                       crc=1        finobt=1, sparse=0, rmapbt=0, reflink=0
+data     =                       bsize=4096   blocks=25600, imaxpct=25
+         =                       sunit=0      swidth=0 blks
+naming   =version 2              bsize=4096   ascii-ci=0 ftype=1
+log      =internal log           bsize=4096   blocks=1608, version=2
+         =                       sectsz=4096  sunit=1 blks, lazy-count=1
+realtime =none                   extsz=4096   blocks=0, rtextents=0
+The operation has completed successfully.
+```
+
+Verify the osd for all 3 nodes are created on the web interface under the OSD tab and the 3 nodes should be created and shown.
+
+Thereafter, create a pool for the osd. This can be done via web interface or command `pveceph createpool yourpoolname -add_storages`. The storage pool will now be available on all the 3 nodes.
+
+The shared storage is now available! Next, implement the automatic fail-over with HA on PVE.
+
 ## Creating inner VM
-Firstly, download the required ISO image and store the image at `/var/lib/vz/template/iso`
+Firstly, download the required ISO image and store the image at `/var/lib/vz/template/iso`. Debian 9.5 will be use to create the inner VM.
+
+Use the Proxmox web interface to create the VM. Under the Hard Disk option. Choose the Storage option to your pool storage instead of local. In this case, the pool storage name is pool1_vm. Complete the rest of the setting with the preferred configuration.
+
+With the option of choosing the Ceph pool, you can see the VM is available on all 3 nodes pool storage. Verify this and check the pool storage and the content of the pool. The VM should be available and shown in the pool storage.
+
+## Setup High-Availability
+
+Create a HA group with all the 3 nodes using the Proxmox web interface. Next, add the VM that was just created to the HA group. Under HA, add resources, select the VM and the HA group.
+
+The VM is expected to be always running. HA will monitor the VM and should the host node goes down, HA will initial a start of the VM on another available node in the cluster.
+
+The HA is now available. Verify by shuting down the host node of the VM. You should observe the VM will automatically migrate to another available node within the cluster.
+
+Live migration can also be done when the VM is running. Right click on the VM and choose the node that you want to migrate to.

@@ -11,14 +11,20 @@ Additionally, your image will also need to be configured to support multiple-IP 
 Auto link up for Corosync requires the binding address to be part of the node's subnet. 
 By default GCP images will produce instances with a netmask of /32, which is a single IP network.
 Use the MULTI_IP_SUBNET option to enable multiple-IP subnets.
+
+Create a disk based on Debian 9  on GCP. Then run the following command in Google Cloud Shell.
+Replace the values with the actual values used.
+
 ```
 gcloud compute images create your-nested-vm-enabled-image \
   --source-disk your-disk-name --source-disk-zone asia-southeast1-b \
   --licenses "https://www.googleapis.com/compute/v1/projects/vm-options/global/licenses/enable-vmx" \
   --guest-os-features MULTI_IP_SUBNET
 ```
-Ref 1: https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
-Ref 2: https://cloud.google.com/vpc/docs/create-use-multiple-interfaces
+
+References:
+  1. https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
+  1. https://cloud.google.com/vpc/docs/create-use-multiple-interfaces
 
 Also create a new Virtual Private Cloud (VPC) network. 
 This is to allow you to create the instances with two network interfaces on separate networks, which is required for HA.
@@ -26,13 +32,39 @@ This is to allow you to create the instances with two network interfaces on sepa
 
 For this activity, we will spin off VMs based on Debian Stretch.
 Our initial setup will have 3 outer VMs with 1 inner VM each.
+We need two network interfaces. When creating the instance on GCP, set IP forwarding as ON.
 
-| Node ID  		| Host Name 	| Internal IP 		| Virtual Bridge IP | Inner VM IP		|
-| ------------- | ------------- | ------------		| ------------		| ------------		|
-| 1  			| instance-1  	| 10.148.10.1/20 	| 10.148.11.1/20	| 10.148.12.1/20	|
-| 2  			| instance-2 	| 10.148.10.2/20 	| 10.148.11.2/20	| 10.148.12.2/20	|
-| 3  			| instance-3  	| 10.148.10.3/20 	| 10.148.11.3/20	| 10.148.12.3/20	|
+| Interface | Network 			|
+| ---------	| ----------		|
+| eth0 		| 10.148.0.0/20		|
+| eth1		| 192.168.0.0/20	|
 
+| Node ID  		| Host Name 	| Internal IP (eth0, eth1)			| Virtual Bridge IP | Inner VM IP		|
+| ------------- | ------------- | ------------						| ------------		| ------------		|
+| 1  			| instance-1  	| 10.148.10.1/20, 192.168.10.1/20 	| 192.168.16.11/20	| 192.168.16.21/20	|
+| 2  			| instance-2 	| 10.148.10.2/20, 192.168.10.2/20 	| 192.168.16.12/20	| 192.168.16.22/20	|
+| 3  			| instance-3  	| 10.148.10.3/20, 192.168.10.3/20 	| 192.168.16.13/20	| 192.168.16.23/20	|
+
+By default eth0 will have internet access.
+To enable internet access for eth1 and vmbr0, edit /etc/network/interfaces as such:
+```
+...
+auto eth1
+iface eth1 inet dhcp
+	up echo 1 > /proc/sys/net/ipv4/ip_forward
+	post-up iptables -t nat -A POSTROUTING -s '192.168.10.0/24' -o eth0 -j MASQUERADE
+	post-down iptables -t nat -D POSTROUTING -s '192.168.10.0/24' -o eth0 -j MASQUERADE
+auto vmbr0
+iface eth1 inet static
+	address 192.168.16.11
+	netmask 255.255.240.0
+	bridge-ports none
+	bridge-stp off
+	bridge-fd 0
+	up echo 1 > /proc/sys/net/ipv4/ip_forward
+	post-up iptables -t nat -A POSTROUTING -s '192.168.16.0/24' -o eth0 -j MASQUERADE
+	post-down iptables -t nat -D POSTROUTING -s '192.168.16.0/24' -o eth0 -j MASQUERADE
+```
 
 Make sure that your public domain is verified with Google if you want to use it.
 https://www.google.com/webmasters/verification/home
@@ -48,18 +80,88 @@ After setting the firewall rule, you can access the Proxmox VE user interface vi
 You can create a cluster using Proxmox. At the Proxmox UI, select 'Datacenter' on the left side bar. 
 Then select 'cluster' on the main portview's menu and click on the 'Create Cluster' button.
 
+Alternatively, you can use the command from you first node:
+```
+pvecm create cluster-name
+```
+
+Due to GCP blocking multicast and that Corosync uses multicast by default. We will need to configure Corosync to use unicast instead.
+Edit /etc/pve/corosync.conf and add the property ```transport: udpu``` into totem so that the file has something like this:
+```
+logging {
+  debug: off
+  to_syslog: yes
+}
+
+nodelist {
+  node {
+    name: instance-1
+    nodeid: 1
+    quorum_votes: 1
+    ring0_addr: 10.148.10.1
+  }
+}
+
+quorum {
+  provider: corosync_votequorum
+}
+
+totem {
+  cluster_name: nice-cluster
+  config_version: 1
+  interface {
+    bindnetaddr: 10.148.10.1
+    ringnumber: 0
+  }
+  ip_version: ipv4
+  secauth: on
+  version: 2
+  transport: udpu
+}
+```
+
+Restart pve-cluster service and /etc/pve/corosync.conf will replace /etc/corosync/corosync.conf
+```
+systemctl restart pve-cluster
+```
+Then restart corosync service
+```
+systemctl restart corosync
+```
+
+On the other nodes run the following command to add them to the cluster.
+If your /etc/hosts is not configured to include your node1's record, use node1's internal IP instead.
+```
+pvecm add instance-1
+```
 
 ## Creating Inner VMs
-You need to create a Linux Bridge first before you can create an inner VM using Proxmox. At the Proxmox UI, go to System > Network under your outer VM instance and click on the Create button.
+You need to create a Linux Bridge first before you can create an inner VM using Proxmox. 
+At the Proxmox UI, go to System > Network under your outer VM instance and click on the Create button.
+You can also create the bridge by editing /etc/network/interfaces and including a set up similar to what we did for vmbr0 above.
+
 ### WARNING! Do not set eth0 as your Linux Bridge's port! This will render your outer VM as inaccessible.
-Leave the Linux Bridge port as empty first.
+Leave the Linux Bridge port as empty.
 
-Before you create an inner VM, make sure that you have the iso file of the image that the inner VM should be based on. Download your iso image and place it in the directory /var/lib/vz/template/iso/. You will then be able to select the iso file during the creation of the inner VM. The image used for this activity is obtained as such:
+Make sure that you have the iso file of the image that the inner VM should be based on. 
+Download your iso image and place it in the directory /var/lib/vz/template/iso/. 
+You will then be able to select the iso file during the creation of the inner VM through Proxmox. 
+You can download the iso file with:
 
 ```
-wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-xfce-CD-1.iso
+wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-netinst.iso
 ```
 
+Edit /etc/resolv.conf of your inner VM and add the nameserver so that web addresses can be resolved
+```
+nameserver 169.254.169.254
+```
+
+Then run
+```
+apt-get update
+apt-get upgrade
+```
 
 useful links
 https://icicimov.github.io/blog/virtualization/Proxmox-clustering-and-nested-virtualization/

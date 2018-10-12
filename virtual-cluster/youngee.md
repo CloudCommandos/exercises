@@ -47,9 +47,9 @@ Create VPC network, choose a your region and IP range
 
 ## Installing Proxmox
 
-Reference to https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_Stretch for installation of Proxmox on Debian Stretch.
+Refer to: https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_Stretch for installation of Proxmox on Debian Stretch.
 
-ssh into the vm and following the instructions from the above link.
+ssh into the vm and following the instructions from the link above.
 
 Once the installation is completed, open the link "https://yourpublicipaddress:8006". The browser will not be able to display the Proxmox web interface. This is caused by the firewall rules.
 
@@ -245,4 +245,18 @@ Thereafter, create a pool for the osd. This can be done via web interface or com
 The shared storage is now available! Next, implement the automatic fail-over with HA on PVE.
 
 ## Creating inner VM
-Firstly, download the required ISO image and store the image at `/var/lib/vz/template/iso`
+Firstly, download the required ISO image and store the image at `/var/lib/vz/template/iso`. Debian 9.5 will be use to create the inner VM.
+
+Use the Proxmox web interface to create the VM. Under the Hard Disk option. Choose the Storage option to your pool storage instead of local. In this case, the pool storage name is pool1_vm. Complete the rest of the setting with the preferred configuration.
+
+With the option of choosing the Ceph pool, you can see the VM is available on all 3 nodes pool storage. Verify this and check the pool storage and the content of the pool. The VM should be available and shown in the pool storage.
+
+## Setup High-Availability
+
+Create a HA group with all the 3 nodes using the Proxmox web interface. Next, add the VM that was just created to the HA group. Under HA, add resources, select the VM and the HA group.
+
+The VM is expected to be always running. HA will monitor the VM and should the host node goes down, HA will initial a start of the VM on another available node in the cluster.
+
+The HA is now available. Verify by shuting down the host node of the VM. You should observe the VM will automatically migrate to another available node within the cluster.
+
+Live migration can also be done when the VM is running. Right click on the VM and choose the node that you want to migrate to.

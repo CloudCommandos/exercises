@@ -1,7 +1,7 @@
-# ***Creation of Virtual Cluster***
+# *Creation of Virtual Cluster*
 *Herein documents the process taken to create a Highly-available VM Cluster*
 
-### *Setting up an environment for the creation of the VM cluster*
+## *Setting up an environment for the creation of the VM cluster*
 After some research, Google Cloud Platform(GCP) was selected because it provided free credits of $300USD which is plentiful for this test setup. To set up the VM cluster, nested VMs are required. The steps to creating a nested VM image is stated below:
 - Create a boot disk from an existing image with an operating system of your choice on GCP
 - Use the boot disk to create a custom image with the special license key required for nested virtualization.
@@ -11,7 +11,7 @@ Do take note to replace the naming options and zone option based on the setup.
 
 The full guide to enabling nested virtualization on VM instances in GCP can be found at https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
 
-### *Setting up of Proxmox Virtual Environment*
+## *Setting up of Proxmox Virtual Environment*
 Proxmox VE is a Debian-based server virtualization management platform which allows deployment and management of virtual machines and containers.  
 
 The following describes the steps taken to setup the Proxmox VE on a nested VM in GCP:
@@ -25,7 +25,7 @@ The following describes the steps taken to setup the Proxmox VE on a nested VM i
 - Done! Access the Proxmox admin web interface by typing https://google-external-IP-address:8006 in the web browser.  
 Upon reaching this point, a Debian nested VM hosting Proxmox VE would be created.
 
-### *Creating a cluster and adding all nodes*
+## *Creating a cluster and adding all nodes*
 Created 2 additional VM instances based on the previous steps to set up for a 3 nodes VM cluster. Select a node to create the cluster and subsequently adding the rest of the nodes into the cluster. Below documents the steps to creating the "cloudcluster" proxmox cluster:  
 - Node 1 is selected to create the cluster. Create the cluster by typing `pvecm create cloudcluster` in Node 1 CLI.
 - Edit the etc/pve/corosync file based on the instructions stated in the **Solutions** segment below.

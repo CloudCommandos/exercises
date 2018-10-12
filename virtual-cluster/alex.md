@@ -37,19 +37,19 @@ Do take note to replace the naming options and zone option based on the setup.
 >Even though the setting up of a cluster is simple and only requires a few command, it is only made possible because of the time and effort spend on researching and troubleshooting the problems faced. During the process of setting up a cluster consisting 3 nodes using the Proxmox web interface, a lot of issues arises during the process of adding the nodes into the cluster.  
 >
 >**Issues found:**  
-1) Netmask of VMs created on GCP are 255.255.255.255, which interferes with the setting up of promox clustering.
+> 1) Netmask of VMs created on GCP are 255.255.255.255, which interferes with the setting up of promox clustering.
 >  
-2) GCP does not support multicast.
+> 2) GCP does not support multicast.
 >
 >**Solutions:**  
 >
 > 1) Due to the default netmask being 255.255.255.255, the corosync file is only able to work on the node which created the file. When the file is sync with another node, error will occur on the corosync service thus preventing the creation of the cluster.
-- To rectify the netmask issue, add `--guest-os-features MULTI_IP_SUBNET` in to the gcloud command for creating nested VM image. (This command has been updated on to the gcloud command for creating the custom nested VM image in the ***"Setting up an environment for the creation of the VM cluster"*** segment)  
+> - To rectify the netmask issue, add `--guest-os-features MULTI_IP_SUBNET` in to the gcloud command for creating nested VM image. (This command has been updated on to the gcloud command for creating the custom nested VM image in the ***"Setting up an environment for the creation of the VM cluster"*** segment)  
 >
 > 2) A simple research online shows that GCP does not support multicast. Therefore configuration needs to be done on the nodes to enable unicast.
-- Ensure that /etc/pve/corosync.conf file is available in the master node. This file is generated when the node creates the cluster.
-- Edit corosync.conf to include this line "transport: udpu" in the totem { } segment.
-- If the file only has read-only access, enter this command `pvecm e 1` to enable editing.
-- Once editing of the corosync file is done, restart the corosync service using `systemctl restart corosync` and also the pve-cluster service using `systemctl restart pve-cluster`.
-- Proceed to add the rest of the nodes to the cluster using `pvecm add <hostname>`. Where hostname is the name or ip of an existing cluster member. ** Do take note to add the nodes in to the cluster one after another, to prevent any errors.  
+>- Ensure that /etc/pve/corosync.conf file is available in the master node. This file is generated when the node creates the cluster.
+>- Edit corosync.conf to include this line "transport: udpu" in the totem { } segment.
+>- If the file only has read-only access, enter this command `pvecm e 1` to enable editing.
+>- Once editing of the corosync file is done, restart the corosync service using `systemctl restart corosync` and also the pve-cluster service using `systemctl restart pve-cluster`.
+>- Proceed to add the rest of the nodes to the cluster using `pvecm add <hostname>`. Where hostname is the name or ip of an existing cluster member. ** Do take note to add the nodes in to the cluster one after another, to prevent any errors.  
 ***

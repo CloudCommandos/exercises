@@ -300,10 +300,8 @@ iface vmbr0 inet static
         up echo 1 > /proc/sys/net/ipv4/ip_forward
         post-up iptables -t nat -A POSTROUTING -s '193.169.2.0/24' -o eth0 -j MASQUERADE
         post-down iptables -t nat -D POSTROUTING -s '193.169.2.0/24' -o eth0 -j MASQUERADE
-        post-up iptables -t nat -A POSTROUTING -s '193.169.2.0/24' -o eth1 -j MASQUERADE
-        post-down iptables -t nat -D POSTROUTING -s '193.169.2.0/24' -o eth1 -j MASQUERADE
 ```
- Firstly, download the required ISO image and store the image at `/var/lib/vz/template/iso`. Debian 9.5 will be use to create the inner VM.
+ To install VM using Proxmox, firstly, download the required ISO image and store the image at `/var/lib/vz/template/iso`. Debian 9.5 will be use to create the inner VM.
 
 Use the Proxmox web interface to create the VM. Under the Hard Disk option. Choose the Storage option to your pool storage instead of local. In this case, the pool storage name is pool1_vm. Complete the rest of the setting with the preferred configuration.
 
@@ -315,7 +313,7 @@ Create a HA group with all the 3 nodes using the Proxmox web interface. Next, ad
 
 The VM is expected to be always running. HA will monitor the VM and should the host node goes down, HA will initial a start of the VM on another available node in the cluster.
 
-The HA is now available. Verify by shuting down the host node of the VM. You should observe the VM will automatically migrate to another available node within the cluster.
+The HA is now available. Verify by shutting down the host node of the VM. You should observe the VM will automatically migrate to another available node within the cluster.
 
 Live migration can also be done when the VM is running. Right click on the VM and choose the node that you want to migrate to.
 

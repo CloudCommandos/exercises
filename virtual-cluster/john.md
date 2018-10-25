@@ -41,9 +41,9 @@ We need two network interfaces. When creating the instance on GCP, set IP forwar
 
 | Node ID  		| Host Name 	| Internal IP (eth0, eth1)			| Virtual Bridge IP | Inner VM IP		|
 | ------------- | ------------- | ------------						| ------------		| ------------		|
-| 1  			| instance-1  	| 10.148.10.1/20, 192.168.10.1/20 	| 192.168.16.11/20	| 192.168.16.21/20	|
-| 2  			| instance-2 	| 10.148.10.2/20, 192.168.10.2/20 	| 192.168.16.12/20	| 192.168.16.22/20	|
-| 3  			| instance-3  	| 10.148.10.3/20, 192.168.10.3/20 	| 192.168.16.13/20	| 192.168.16.23/20	|
+| 1  			| instance-1  	| 10.148.10.1/20, 192.168.10.1/20 	| 192.168.21.1/24	| 192.168.21.2/24	|
+| 2  			| instance-2 	| 10.148.10.2/20, 192.168.10.2/20 	| 192.168.22.1/24	| 192.168.22.2/24	|
+| 3  			| instance-3  	| 10.148.10.3/20, 192.168.10.3/20 	| 192.168.23.1/24	| 192.168.23.2/24	|
 
 By default eth0 will have internet access.
 To enable internet access for eth1 and vmbr0, edit /etc/network/interfaces as such:
@@ -55,16 +55,24 @@ iface eth1 inet dhcp
 	post-up iptables -t nat -A POSTROUTING -s '192.168.10.0/24' -o eth0 -j MASQUERADE
 	post-down iptables -t nat -D POSTROUTING -s '192.168.10.0/24' -o eth0 -j MASQUERADE
 auto vmbr0
-iface eth1 inet static
-	address 192.168.16.11
-	netmask 255.255.240.0
+iface vmbr0 inet static
+	address 192.168.21.1
+	netmask 255.255.255.0
 	bridge-ports none
 	bridge-stp off
 	bridge-fd 0
 	up echo 1 > /proc/sys/net/ipv4/ip_forward
-	post-up iptables -t nat -A POSTROUTING -s '192.168.16.0/24' -o eth0 -j MASQUERADE
-	post-down iptables -t nat -D POSTROUTING -s '192.168.16.0/24' -o eth0 -j MASQUERADE
+	post-up iptables -t nat -A POSTROUTING -s '192.168.21.0/24' -o eth0 -j MASQUERADE
+	post-down iptables -t nat -D POSTROUTING -s '192.168.21.0/24' -o eth0 -j MASQUERADE
 ```
+On Google Cloud Platform create Routes for the 10.148.0.0/20 network as such:
+| Route No.  	| Destination 		| Next Hop		| 
+| -------------	| ------------- 	| ------------	| 
+| 1  			| 192.168.21.0/24  	| instance-1 	|
+| 2  			| 192.168.22.0/24 	| instance-2 	|
+| 3 			| 192.168.23.0/24 	| instance-3	|
+This allows inner VMs to be able to communicate internally.
+
 
 Make sure that your public domain is verified with Google if you want to use it.
 https://www.google.com/webmasters/verification/home
@@ -80,7 +88,7 @@ After setting the firewall rule, you can access the Proxmox VE user interface vi
 You can create a cluster using Proxmox. At the Proxmox UI, select 'Datacenter' on the left side bar. 
 Then select 'cluster' on the main portview's menu and click on the 'Create Cluster' button.
 
-Alternatively, you can use the command from you first node:
+Alternatively, you can use the command from your first node:
 ```
 pvecm create cluster-name
 ```
@@ -135,6 +143,19 @@ If your /etc/hosts is not configured to include your node1's record, use node1's
 pvecm add instance-1
 ```
 
+##Cluster High Availability
+Create one hard disk for each of the nodes via GCP UI.
+Allocate 50G of disk space for each of them.
+Edit each node and attach the hard disks to their respective nodes.
+Run the following commands within each node (only run certain commands once at one node as indicated)
+```
+pveceph install
+pveceph init --network 192.168.10.0/24	#Run once at one node, do not use same subnet as vmbr0!
+pveceph createmon
+pveceph createosd /dev/sdb
+pveceph createpool pool_name -add_storages	#Run once at one node
+```
+
 ## Creating Inner VMs
 You need to create a Linux Bridge first before you can create an inner VM using Proxmox. 
 At the Proxmox UI, go to System > Network under your outer VM instance and click on the Create button.
@@ -152,15 +173,61 @@ You can download the iso file with:
 wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-netinst.iso
 ```
 
-Edit /etc/resolv.conf of your inner VM and add the nameserver so that web addresses can be resolved
+When installing the debian image, make sure that 'SSH server' and 'standard system utilities' are included in the installation.
+SSH server is required so that you can set up the VM straight away with Ansible playbook.
+
+During installation, specify VM IP within vmbr0's network e.g. 192.168.16.21/20
+
+During installation, specify nameserver as 169.254.169.254
+
+After installation, edit /etc/ssh/sshd_config and set PermitRootLogin and PasswordAuthentication as 'yes'.
+Then from the VM's node copy ssh key into the VM
 ```
-nameserver 169.254.169.254
+ssh-copy-id 192.168.16.21
+```
+After copying over the ssh key, set PermitRootLogin to prohibit-password and PasswordAuthentication to 'no'.
+
+
+##Ansible Playbook
+Install Ansible on node1
+```
+apt-get update && apt-get install software-properties-common
+apt-add-repository ppa:ansible/ansible
+apt-get update && apt-get install ansible
 ```
 
-Then run
+###Ansible Playbook Roles
+Ansible Playbook roles for postfix, dovecot, and nginx installations are available on ansible-galaxy.
+Install the roles.
 ```
-apt-get update
-apt-get upgrade
+ansible-galaxy install debops.postfix
+ansible-galaxy install debops.dovecot
+ansible-galaxy install debops.nginx
+```
+An example ansible playbook script (~/.ansible/scripts/postfix.yml) for postfix installation is as follows:
+```
+---
+- hosts: [ 'debops_service_postfix' ]
+  remote_user: root
+  environment: '{{ inventory__environment | d({})
+               | combine(inventory__group_environment | d({}))
+               | combine(inventory__host_environment  | d({})) }}'
+  roles:
+     - role: debops.postfix 
+       tags: ['role::postfix']
+```
+
+Before running the playbook, the hostname for "debops_service_postfix" should be added into the hosts list of ansible.
+```
+vim /etc/ansible/hosts
+
+[debops_service_postfix]
+192.168.21.2
+```
+
+Run the playbook
+```
+ansible-playbook ~/.ansible/scripts/postfix.yml --ask-pass
 ```
 
 useful links

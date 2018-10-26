@@ -67,7 +67,7 @@ Even though the setting up of a cluster is simple and only requires a few comman
 
 **Setting up of HA cluster using Ceph:**
 1. Run `apt-get update` follow by `apt-get upgrade` to update the debian packages on all the nodes.
-  - If the update prompts an error, proceed to /etc/apt/source.list.d/pve-enterprise.list and change all the urls from https to http.
+   - If the update prompts an error, proceed to /etc/apt/source.list.d/pve-enterprise.list and change all the urls from https to http.
 1. After the update is completed, proceed to install Ceph using `pveceph install` on all existing nodes.
 1. Run `pveceph init --network 192.168.0.0/24` on the main node to initialize Ceph on the eth1 network which was setup previously.
 1. Using the command `pveceph createmon` on all the nodes will set up the monitoring service on proxmox ve.
@@ -77,9 +77,9 @@ Even though the setting up of a cluster is simple and only requires a few comman
 ## *Setting up of Inner VM*
 **Prerequisites:**
 1. Download the iso image file on the node, the iso file will be used to create the inner vm.
-  - `cd /var/lib/vz/template/iso` to navigate to the directory where the iso file will be stored.
-  - `wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-netinst.iso
-  ` to download the iso file to the current location.
+   - `cd /var/lib/vz/template/iso` to navigate to the directory where the iso file will be stored.
+   - `wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-netinst.iso
+   ` to download the iso file to the current location.
 1. Create a VM bridge(vmbr0) network to be used by the inner vms.
 1. Setup masquerade on vmbr0 network through eth0 network, to allow access to the internet. This can be achieved by adding the follow commands in to the /etc/network/interfaces file under vmbr0 segment:
 ```

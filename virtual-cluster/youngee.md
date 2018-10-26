@@ -253,9 +253,10 @@ The table below shows the ip address that i used for this configuration.
 
 |Instance Internal IP NIC 0|Instance Internal IP NIC 1|Virutal Bridge IP|Inner VM IP|
 |---|---|---|---|
-|10.148.0.2/24|192.168.1.2/24|193.169.2.2/24|193.169.2.22/24|
-|10.148.0.2/24|192.168.1.2/24|193.169.2.3/24|193.169.2.23/24|
-|10.148.0.2/24|192.168.1.2/24|193.169.2.4/24|193.169.2.24/24|
+|10.148.0.2/24|192.168.1.2/24|193.169.2.1/24|193.169.2.2/24|
+|10.148.0.3/24|192.168.1.2/24|193.169.2.1/24|193.169.2.3/24|
+|10.148.0.4/24|192.168.1.2/24|193.169.2.1/24|193.169.2.4/24|
+**Still working on the networking configuration. Thus, further configuration will be done.**
 
 Create a routing at the Instance to allow Internet access for the inner VM via virtual bridge.
 
@@ -322,3 +323,26 @@ Live migration can also be done when the VM is running. Right click on the VM an
 Ansible is a open source software that automates configuration management, software provisioning etc.
 
 To use Ansible, `apt-get install ansible` on the host machine.
+
+Ansible uses ssh protocol and carry out the configuration tasks. Thus, it is important to add in the IP address of the target remote machines into `/etc/ansible/hosts`. On the hosts file, you can categori
+se the IP address into different section such as [web server] etc.
+
+To run Ansible playbook,  a yaml is required. Create a `.yml` file and use the Ansible modules command to carry out different configuration via SSH to a remote machine.
+
+A template of a `.yml` is shown below. Simply add in more `- name:` and various modules command to carry out different tasks.
+```
+#configuration
+---
+- name: mail server #name for this particular yml
+  hosts: 192.168.1.2 #IP address of the target remote machine
+  become_user: root #become root to excute the configuration below
+  tasks: #start of the tasks that will be done for this yml
+        - name: #name of the task
+        .
+        .
+        - name: ...
+```
+
+Note: Indentation is extremely important for the yaml. Make sure the structure of the codes are align properly. Syntax error will occur if such conditions are not met. Suggest to use Notepad++ and enable "Show All Characters" to edit the yaml file.
+
+My Ansible yml file is located at: https://github.com/CloudCommandos/Raspclouds/blob/master/Ansible/configuration.yml

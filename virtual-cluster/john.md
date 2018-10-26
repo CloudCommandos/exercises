@@ -66,11 +66,13 @@ iface vmbr0 inet static
 	post-down iptables -t nat -D POSTROUTING -s '192.168.21.0/24' -o eth0 -j MASQUERADE
 ```
 On Google Cloud Platform create Routes for the 10.148.0.0/20 network as such:
+
 | Route No.  	| Destination 		| Next Hop		| 
 | -------------	| ------------- 	| ------------	| 
 | 1  			| 192.168.21.0/24  	| instance-1 	|
 | 2  			| 192.168.22.0/24 	| instance-2 	|
 | 3 			| 192.168.23.0/24 	| instance-3	|
+
 This allows inner VMs to be able to communicate internally.
 
 

@@ -15,7 +15,7 @@ Use the MULTI_IP_SUBNET option to enable multiple-IP subnets.
 Create a disk based on Debian 9  on GCP. Then run the following command in Google Cloud Shell.
 Replace the values with the actual values used.
 
-```
+```bash
 gcloud compute images create your-nested-vm-enabled-image \
   --source-disk your-disk-name --source-disk-zone asia-southeast1-b \
   --licenses "https://www.googleapis.com/compute/v1/projects/vm-options/global/licenses/enable-vmx" \
@@ -23,8 +23,8 @@ gcloud compute images create your-nested-vm-enabled-image \
 ```
 
 References:
-  1. https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
-  1. https://cloud.google.com/vpc/docs/create-use-multiple-interfaces
+  1. [Enable Nested Virtualization VM Instances on GCP](https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances)
+  1. [Enabling Multi-IP Network Interfaces on GCP](https://cloud.google.com/vpc/docs/create-use-multiple-interfaces)
 
 Also create a new Virtual Private Cloud (VPC) network. 
 This is to allow you to create the instances with two network interfaces on separate networks, which is required for HA.
@@ -41,9 +41,9 @@ We need two network interfaces. When creating the instance on GCP, set IP forwar
 
 | Node ID  		| Host Name 	| Internal IP (eth0, eth1)			| Virtual Bridge IP | Inner VM IP		|
 | ------------- | ------------- | ------------						| ------------		| ------------		|
-| 1  			| instance-1  	| 10.148.10.1/20, 192.168.10.1/20 	| 192.168.16.11/20	| 192.168.16.21/20	|
-| 2  			| instance-2 	| 10.148.10.2/20, 192.168.10.2/20 	| 192.168.16.12/20	| 192.168.16.22/20	|
-| 3  			| instance-3  	| 10.148.10.3/20, 192.168.10.3/20 	| 192.168.16.13/20	| 192.168.16.23/20	|
+| 1  			| instance-1  	| 10.148.10.1/20, 192.168.10.1/20 	| 192.168.21.1/24	| 192.168.21.2/24	|
+| 2  			| instance-2 	| 10.148.10.2/20, 192.168.10.2/20 	| 192.168.22.1/24	| 192.168.22.2/24	|
+| 3  			| instance-3  	| 10.148.10.3/20, 192.168.10.3/20 	| 192.168.23.1/24	| 192.168.23.2/24	|
 
 By default eth0 will have internet access.
 To enable internet access for eth1 and vmbr0, edit /etc/network/interfaces as such:
@@ -55,23 +55,35 @@ iface eth1 inet dhcp
 	post-up iptables -t nat -A POSTROUTING -s '192.168.10.0/24' -o eth0 -j MASQUERADE
 	post-down iptables -t nat -D POSTROUTING -s '192.168.10.0/24' -o eth0 -j MASQUERADE
 auto vmbr0
-iface eth1 inet static
-	address 192.168.16.11
-	netmask 255.255.240.0
+iface vmbr0 inet static
+	address 192.168.21.1
+	netmask 255.255.255.0
 	bridge-ports none
 	bridge-stp off
 	bridge-fd 0
 	up echo 1 > /proc/sys/net/ipv4/ip_forward
-	post-up iptables -t nat -A POSTROUTING -s '192.168.16.0/24' -o eth0 -j MASQUERADE
-	post-down iptables -t nat -D POSTROUTING -s '192.168.16.0/24' -o eth0 -j MASQUERADE
+	post-up iptables -t nat -A POSTROUTING -s '192.168.21.0/24' -o eth0 -j MASQUERADE
+	post-down iptables -t nat -D POSTROUTING -s '192.168.21.0/24' -o eth0 -j MASQUERADE
 ```
+On Google Cloud Platform create Routes for the 10.148.0.0/20 network as such:
+
+| Route No.  	| Destination 		| Next Hop		| 
+| -------------	| ------------- 	| ------------	| 
+| 1  			| 192.168.21.0/24  	| instance-1 	|
+| 2  			| 192.168.22.0/24 	| instance-2 	|
+| 3 			| 192.168.23.0/24 	| instance-3	|
+
+This allows inner VMs to be able to communicate internally.
+
 
 Make sure that your public domain is verified with Google if you want to use it.
-https://www.google.com/webmasters/verification/home
+[Verify your Domain with Google](https://www.google.com/webmasters/verification/home)
 
-Follow this guide for the installation of Proxmox VE and creation of virtual bridges. https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_Stretch.
+Follow this guide for the installation of Proxmox VE and creation of virtual bridges. 
+[Install Proxmox VE on Debian Stretch](https://pve.proxmox.com/wiki/Install_Proxmox_VE_on_Debian_Stretch).
 
-On Google Cloud Platform (GCP) set the firewall rule to allow tcp on port 8006 so that the Proxmox VE's user interface can be accessed. GCP's firewall settings is located under the menu tab NETWORKING > VPC network > Firewall rules.
+On Google Cloud Platform (GCP) set the firewall rule to allow tcp on port 8006 so that the Proxmox VE's user interface can be accessed. 
+GCP's firewall settings is located under the menu tab NETWORKING > VPC network > Firewall rules.
 
 After setting the firewall rule, you can access the Proxmox VE user interface via https://YourPublicDomain.com:8006.
 
@@ -80,8 +92,8 @@ After setting the firewall rule, you can access the Proxmox VE user interface vi
 You can create a cluster using Proxmox. At the Proxmox UI, select 'Datacenter' on the left side bar. 
 Then select 'cluster' on the main portview's menu and click on the 'Create Cluster' button.
 
-Alternatively, you can use the command from you first node:
-```
+Alternatively, you can use the command from your first node:
+```bash
 pvecm create cluster-name
 ```
 
@@ -121,18 +133,31 @@ totem {
 ```
 
 Restart pve-cluster service and /etc/pve/corosync.conf will replace /etc/corosync/corosync.conf
-```
+```bash
 systemctl restart pve-cluster
 ```
 Then restart corosync service
-```
+```bash
 systemctl restart corosync
 ```
 
 On the other nodes run the following command to add them to the cluster.
 If your /etc/hosts is not configured to include your node1's record, use node1's internal IP instead.
-```
+```bash
 pvecm add instance-1
+```
+
+## Cluster High Availability
+Create one hard disk for each of the nodes via GCP UI.
+Allocate 50G of disk space for each of them.
+Edit each node and attach the hard disks to their respective nodes.
+Run the following commands within each node (only run certain commands once at one node as indicated)
+```bash
+pveceph install
+pveceph init --network 192.168.10.0/24	#Run once at one node, do not use same subnet as vmbr0!
+pveceph createmon
+pveceph createosd /dev/sdb
+pveceph createpool pool_name -add_storages	#Run once at one node
 ```
 
 ## Creating Inner VMs
@@ -148,21 +173,68 @@ Download your iso image and place it in the directory /var/lib/vz/template/iso/.
 You will then be able to select the iso file during the creation of the inner VM through Proxmox. 
 You can download the iso file with:
 
-```
+```bash
 wget https://cdimage.debian.org/debian-cd/current/amd64/iso-cd/debian-9.5.0-amd64-netinst.iso
 ```
 
-Edit /etc/resolv.conf of your inner VM and add the nameserver so that web addresses can be resolved
+When installing the debian image, make sure that 'SSH server' and 'standard system utilities' are included in the installation.
+SSH server is required so that you can set up the VM straight away with Ansible playbook.
+
+During installation, specify VM IP within vmbr0's network e.g. 192.168.16.21/20
+
+During installation, specify nameserver as 169.254.169.254
+
+After installation, edit /etc/ssh/sshd_config and set PermitRootLogin and PasswordAuthentication as 'yes'.
+Then from the VM's node copy ssh key into the VM
+```bash
+ssh-copy-id 192.168.16.21
 ```
-nameserver 169.254.169.254
+After copying over the ssh key, set PermitRootLogin to prohibit-password and PasswordAuthentication to 'no'.
+
+
+## Ansible Playbook
+Install Ansible on node1
+```bash
+apt-get update && apt-get install software-properties-common
+apt-add-repository ppa:ansible/ansible
+apt-get update && apt-get install ansible
 ```
 
-Then run
+### Ansible Playbook Roles
+Ansible Playbook roles for postfix, dovecot, and nginx installations are available on ansible-galaxy.
+Install the roles.
+```bash
+ansible-galaxy install debops.postfix
+ansible-galaxy install debops.dovecot
+ansible-galaxy install debops.nginx
 ```
-apt-get update
-apt-get upgrade
+An example ansible playbook script (~/.ansible/scripts/postfix.yml) for postfix installation is as follows:
+```
+---
+- hosts: [ 'debops_service_postfix' ]
+  remote_user: root
+  environment: '{{ inventory__environment | d({})
+               | combine(inventory__group_environment | d({}))
+               | combine(inventory__host_environment  | d({})) }}'
+  roles:
+     - role: debops.postfix 
+       tags: ['role::postfix']
 ```
 
-useful links
-https://icicimov.github.io/blog/virtualization/Proxmox-clustering-and-nested-virtualization/
-https://pve.proxmox.com/wiki/Proxmox_VE_4.x_Cluster
+Before running the playbook, the hostname for "debops_service_postfix" should be added into the hosts list of ansible.
+```bash
+vim /etc/ansible/hosts
+
+[debops_service_postfix]
+192.168.21.2
+```
+
+Run the playbook
+```bash
+ansible-playbook ~/.ansible/scripts/postfix.yml --ask-pass
+```
+
+## Useful Links
+[Proxmox Clustering and Nested Virtualization](https://icicimov.github.io/blog/virtualization/Proxmox-clustering-and-nested-virtualization/)
+
+[Proxmox VE 4.x Cluster Info](https://pve.proxmox.com/wiki/Proxmox_VE_4.x_Cluster)

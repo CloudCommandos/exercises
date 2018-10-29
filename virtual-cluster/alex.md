@@ -74,7 +74,7 @@ Even though the setting up of a cluster is simple and only requires a few comman
 1. Create an OSD on each node with the empty disk using `pveceph createosd /dev/sdb`.
 1. Create a storage pool using `pveceph createpool poolname -add_storages`. ** Take note that this command only needs to be run once on any nodes.
 
-## *Setting up of Inner VM*
+## Setting up of Inner VM
 **Prerequisites:**
 1. Download the iso image file on the node, the iso file will be used to create the inner vm.
    - `cd /var/lib/vz/template/iso` to navigate to the directory where the iso file will be stored.

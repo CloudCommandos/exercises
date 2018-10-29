@@ -91,7 +91,7 @@ post-down iptables -t nat -D POSTROUTING -s '100.100.100.0/24' -o eth0 -j MASQUE
 **Setting up of Inner VM**  
 The setup for the inner vm is done using the proxmox-ve web interface. With the prerequisites completed, the inner vm should be able to do a network installation without any trouble. The network installation is very important as the iso image downloaded contains only the bare minimum requirement to get the OS started. Therefore take note to select the services which is required ie. ssh server, standard system utilities.  
 
-** Things to take note:  
+Things to take note:
 1. Key in the correct ip network range based on the vmbr0.
 1. When prompt for the ip address of the nameserver, key in 169.254.169.254.  
 

@@ -267,7 +267,6 @@ Change the password after login.
 ## Current Status
 Currently login into Rainloop web client is unsuccessful.
 System prompts "Authentication failed".
-Another issue is that a smtp relay server listening on non standard port is required. This is because GCP blocks outgoing email on ports 25, 465, and 587.
 
 Useful Links:
 [How to Install and Use Docker on Debian 9](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-debian-9)

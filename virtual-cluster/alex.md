@@ -9,7 +9,7 @@ After some research, Google Cloud Platform(GCP) was selected because it provided
   ```bash
   gcloud compute images create nested-vm-image \
   --source-disk disk1 --source-disk-zone us-central1-b \
-  --licenses "https://www.googleapis.com/compute/v1/projects/vm-opti  ons/global/licenses/enable-vmx" \
+  --licenses "https://www.googleapis.com/compute/v1/projects/vm-options/global/licenses/enable-vmx" \
   --guest-os-features MULTI_IP_SUBNET
   ```
    Do take note to replace the naming options and zone option based on the setup.   

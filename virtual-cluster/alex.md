@@ -6,14 +6,14 @@ After some research, Google Cloud Platform(GCP) was selected because it provided
 - Create a boot disk from an existing image with an operating system of your choice on GCP
 - Use the boot disk to create a custom image with the special license key required for nested virtualization.
 - Run the following code on gcloud command-line tool to create the custom nested VM image:   
-   ```bash
-   gcloud compute images create nested-vm-image \
-   --source-disk disk1 --source-disk-zone us-central1-b \
-   --licenses "https://www.googleapis.com/compute/v1/projects/vm-options/global/licenses/enable-vmx" \
-   --guest-os-features MULTI_IP_SUBNET
-   ``` 
+  ```bash
+  gcloud compute images create nested-vm-image \
+  --source-disk disk1 --source-disk-zone us-central1-b \
+  --licenses "https://www.googleapis.com/compute/v1/projects/vm-opti  ons/global/licenses/enable-vmx" \
+  --guest-os-features MULTI_IP_SUBNET
+  ```
    Do take note to replace the naming options and zone option based on the setup.   
-- The nested VM image will be available on the custom image tap for selection when creating a VM instance  
+- The nested VM image will be available on the custom image tap for selection when creating a VM instance.
 
 The full guide to enabling nested virtualization on VM instances in GCP can be found at https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
 
@@ -45,7 +45,7 @@ Created 2 additional VM instances based on the previous steps to set up for a 3 
 - The cluster "cloudcluster" will be successfully created with all 3 nodes connected.
 Even though the setting up of a cluster is simple and only requires a few command, it is only made possible because of the time and effort spend on researching and troubleshooting the problems faced. During the process of setting up a cluster consisting 3 nodes using the Proxmox web interface, a lot of issues arises during the process of adding the nodes into the cluster.  
 
-### Issues found: 
+### Issues found:
 1. Netmask of VMs created on GCP are 255.255.255.255, which interferes with the setting up of promox clustering.  
 1. GCP does not support multicast.
 
@@ -60,7 +60,7 @@ Even though the setting up of a cluster is simple and only requires a few comman
      - Once editing of the corosync file is done, restart the corosync service using `systemctl restart corosync` and also the pve-cluster service using `systemctl restart pve-cluster`.
      - Proceed to add the rest of the nodes to the cluster using `pvecm add <hostname>`. Where hostname is the name or ip of an existing cluster member. ** Do take note to add the nodes in to the cluster one after another, to prevent any errors.
 
-## Setting up of High Availability Cluster 
+## Setting up of High Availability Cluster
 ### Prerequisites:
 1. Setting up an empty disk on each node using GCP.
 1. Creating a second network(eth1) on GCP and add into the nodes. ** Note that this has to be done at the start when the nodes are created on GCP.  
@@ -88,7 +88,7 @@ Even though the setting up of a cluster is simple and only requires a few comman
    post-down iptables -t nat -D POSTROUTING -s '100.100.100.0/24' -o eth0 -j MASQUERADE
    ```  
 
-### Setting up of Inner VM 
+### Setting up of Inner VM
 The setup for the inner vm is done using the proxmox-ve web interface. With the prerequisites completed, the inner vm should be able to do a network installation without any trouble. The network installation is very important as the iso image downloaded contains only the bare minimum requirement to get the OS started. Therefore take note to select the services which is required ie. ssh server, standard system utilities.  
 
 Things to take note:
@@ -100,7 +100,7 @@ Once the image have been successfully installed, the inner vm will be ready to u
 1. uncomment PermitRootLogin and set to yes.
 1. uncomment PasswordAuthentication and set to yes.
 
-## Setting up Ansible 
+## Setting up Ansible
 1. Install Ansible package on the node(outer vm) by running `apt-get install ansible`.
 1. Setup a ssh connection between the outer node and inner vm by running `ssh-keygen` on the node, and subsequently copy the generated key to the inner vm using `ssh-copy-id Inner-Vm-Ip`
 1. Add the inner vm ip address in to the /etc/ansible/hosts file.
@@ -127,3 +127,25 @@ The following shows a simple ansible script for the installation of postfix:
           - mailutils
 ```
 There are a lot of ansible scripts for different purposes online and all it takes is some dedicated research to discover the scripts required.
+## Setting up VM Cluster on Host-based Hypervisor
+While working on this project, a lot of issue arises because of the limitations of GCP. Issues faced are clustering setup on proxmox and inner VMs network issue. Decided to replicate the project on host-based hypervisors to see if the same issues still persist.  
+### Limitations of GCP
+1. Does not support multicast.
+1. Unable to bridge vmbr0 to eth1 port.  
+
+After some research online, two hypervisors software were shortlisted for the purpose of this test setup.
+1. Oracle VM Virtualbox
+1. VMware Workstation
+
+### Oracle VM Virtualbox
+Working on Virtualbox is a breeze, from the setting up of the network connections to the creation of proxmox VMs. Setting up of the cluster for the VMs is also very simple, no configuration on the corosync file is required because there is no such limitations as compared to GCP.  
+However, a huge problem occurred after the setting up of the cluster, Proxmox-ve is unable to setup and host inner VMs. An extensive research online returns with result showing that Oracle VM Virtualbox does not support nested VM virtualization and thus proving that all the efforts are in vain...  
+### VMware Workstation
+Learning from the previous example, a research is conducted on VMware to check if it supports nested VM virtualization. The results showed that VMware supports nested virtualtization and therefore its safe to proceed with the test setup.  
+Setting up of the network connections are much more complicated as compared to Virtualbox. Once the network setup is completed, the setting up of the proxmox VMs and cluster is same as Virtualbox.  
+However, issue arises yet again during the setting up of inner VMs. When trying to start up the inner VMs, they will be stuck at the BIOS loading page with the CPU usage reaching 100%. Research online shows that this is actually a bug with hosting proxmox on VMware and the solution is to set the inner VM machine type to 2.6. Once that is done, the inner VMs will be able to boot up normally.   
+Run the following command in the Proxmox VMs(node):
+```
+qm set ID -machine pc-i440fx-2.6
+```   
+After the inner VMs are setup on each nodes, they are able to ping each other across the nodes which is not achievable on GCP.

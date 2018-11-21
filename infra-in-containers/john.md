@@ -30,6 +30,7 @@ Cons:
 * BSD Jails
 * Windows Server Containers
 * Hyper-V containers
+* Kata
 
 
 ## Install Docker on Debian 9
@@ -89,6 +90,14 @@ cd ~/dockerproj/docker-mailserver-suite
 docker pull tvial/docker-mailserver
 docker pull hardware/rainloop
 docker pull abiosoft/caddy
+```
+
+Also download tvial/docker-mailserver's configuration files
+```bash
+curl -o setup.sh https://raw.githubusercontent.com/tomav/docker-mailserver/master/setup.sh; 
+chmod a+x ./setup.sh;
+curl -o docker-compose.yml https://raw.githubusercontent.com/tomav/docker-mailserver/master/docker-compose.yml.dist
+curl -o .env https://raw.githubusercontent.com/tomav/docker-mailserver/master/.env.dist
 ```
 
 Edit some of the environment parameters

@@ -18,6 +18,7 @@ gcloud compute images create your-nested-vm-enabled-image \
   --guest-os-features MULTI_IP_SUBNET
 ```
 Ref 1: https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
+
 Ref 2: https://cloud.google.com/vpc/docs/create-use-multiple-interfaces
 
 Also create a new Virtual Private Cloud (VPC) network. 

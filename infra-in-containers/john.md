@@ -64,6 +64,13 @@ Give execute permission to the docker-compose binary.
 ```bash
 sudo chmod +x /usr/local/bin/docker-compose
 ```
+Create link file if running docker-compose gives the error
+```bash
+-su: /usr/bin/docker-compose: No such file or directory
+```
+```bash
+ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+```
 
 ## Spin off an Email Server with Containers
 For testing purposes, a readily deployable email server suite is used.
@@ -107,6 +114,7 @@ vim ~/dockerproj/docker-mailserver-suite/.env
   HOSTNAME=mail
   DOMAINNAME=commandocloudlet.com
   CONTAINER_NAME=mail
+  SSL_TYPE=manual
 ```
 
 Edit the email server suite's docker compose startup file
@@ -127,8 +135,9 @@ vim ~/dockerproj/docker-mailserver-suite/docker-compose.yml
       domainname: ${DOMAINNAME}
       container_name: ${CONTAINER_NAME}
       ports:
-      #- "25:25" commented out because port 25 is in use by GCP
+      - "2525:25"
       - "143:143"
+	  - "465:465"
       - "587:587"
       - "993:993"
       - "4190:4190"

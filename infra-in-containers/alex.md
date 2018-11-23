@@ -1,7 +1,7 @@
-## Containers instead of VM
+# Containers instead of VM
 With the many benefits of running Container to deploy applications as compared to VM, it proves to be a wise choice to swap the inner Vms with Containers. However, the choice to choose between Container and VM is based on what the user hopes to achieve.   
 For this setup, Docker will be used to replace the inner VMs with Containers for the deployment of the applications and services.   
-### Docker Installation
+## Docker Installation
 1. Setting up of repository.
     - Update the repository using `apt-get update`
     - Install the necessary packages:   
@@ -10,11 +10,11 @@ For this setup, Docker will be used to replace the inner VMs with Containers for
     ```
     - Adding Docker’s official GPG key:   
     ```
-    curl -FsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
     ```
     - Set up the repository:   
     ```
-    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cd) stable edge"
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable edge"
     ```
 1. Install docker-ce & docker-compose package.
     - Run `apt-get update`
@@ -23,7 +23,7 @@ For this setup, Docker will be used to replace the inner VMs with Containers for
     - Run `docker run hello-world`
     - The command will download an image and runs it in a container. A message to show that the image is downloaded and run sucessfully will be printed.   
 
-### Building Apache HTTP server container on Docker
+## Building Apache HTTP server container on Docker
 1. Create a directory using `mkdir /docker`.
 1. Create a Dockerfile inside the /docker directory; `touch /docker/Dockerfile`.
 1. Create a sample webpage; `vim /docker/index.html`.
@@ -45,4 +45,15 @@ For this setup, Docker will be used to replace the inner VMs with Containers for
     ```
     docker run -d -p 8000:80 apache2server:v1
     ```
-1. See the result by visiting http://HostIP:8000
+1. See the result by visiting http://HostIP:8000   
+
+## Installation of Kubernetes
+1. Run `apt-get update && apt-get install apt-transport-https`
+1. `curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -`
+1. Add the web address into the repository list:
+   ```   
+   $ cat <<EOF >/etc/apt/sources.list.d/kubernetes.list
+   > deb https://apt.kubernetes.io/ kubernetes-xenial main
+   > EOF
+   ```
+1. Install `kubelet kubeadm kubernetes-cni`

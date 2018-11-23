@@ -278,7 +278,6 @@ cd ~/dockerproj/docker-mailserver/
 ./setup.sh email add username@commandocloudlet.com password
 ```
 
-
 Visit http://mail.commandocloudlet.com to access Rainloop email client.  
 To configure Rainloop, visit http://mail.commandocloudlet.com/?admin.
 The default root account is
@@ -287,6 +286,8 @@ Username: admin
 Password: 12345
 ```
 Change the password after login.
+
+![Add domain settings into Rainloop](https://github.com/CloudCommandos/missions/blob/john-progress/infra-in-containers/screenshots/Rainloop_AddDomain.JPG)
 
 ## Current Status
 Login into Rainloop web client is successful.  

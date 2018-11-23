@@ -88,12 +88,12 @@ mkdir ~/dockerproj
 
 Also make a directory for the email server suite under the docker project directory
 ```bash
-mkdir ~/dockerproj/docker-mailserver-suite
+mkdir ~/dockerproj/docker-mailserver
 ```
 
 Pull the Container Images from Docker Hub into the email server suite directory
 ```bash
-cd ~/dockerproj/docker-mailserver-suite
+cd ~/dockerproj/docker-mailserver
 docker pull tvial/docker-mailserver
 docker pull hardware/rainloop
 docker pull abiosoft/caddy
@@ -109,7 +109,7 @@ curl -o .env https://raw.githubusercontent.com/tomav/docker-mailserver/master/.e
 
 Edit some of the environment parameters
 ```bash
-vim ~/dockerproj/docker-mailserver-suite/.env
+vim ~/dockerproj/docker-mailserver/.env
 
   HOSTNAME=mail
   DOMAINNAME=commandocloudlet.com
@@ -119,7 +119,7 @@ vim ~/dockerproj/docker-mailserver-suite/.env
 
 Edit the email server suite's docker compose startup file
 ```bash
-vim ~/dockerproj/docker-mailserver-suite/docker-compose.yml
+vim ~/dockerproj/docker-mailserver/docker-compose.yml
 
   version: '3'
   services:
@@ -135,9 +135,9 @@ vim ~/dockerproj/docker-mailserver-suite/docker-compose.yml
       domainname: ${DOMAINNAME}
       container_name: ${CONTAINER_NAME}
       ports:
-      - "2525:25"
+      - "25:25"
       - "143:143"
-	  - "465:465"
+	    - "465:465"
       - "587:587"
       - "993:993"
       - "4190:4190"
@@ -235,9 +235,9 @@ vim ~/dockerproj/docker-mailserver-suite/docker-compose.yml
         - ./data/entry:/root/.caddy
 ```
 
-Also create Caddy's configuration Caddyfile
+Create Caddy's configuration Caddyfile
 ```bash
-vim ~/dockerproj/docker-mailserver-suite/entry/Caddyfile
+vim ~/dockerproj/docker-mailserver/entry/Caddyfile
 
   http://mail.commandocloudlet.com {
       proxy / rainloop:8888 {
@@ -246,23 +246,17 @@ vim ~/dockerproj/docker-mailserver-suite/entry/Caddyfile
   }
 ```
 
-Create a user account for the Email Server
-```bash
-cd ~/dockerproj/docker-mailserver-suite/
-./setup.sh email add username@commandocloudlet.com password
-```
-
 Create SSL Certificate
 ```bash
 apt-get install openssl
-mkdir -p ~/dockerproj/docker-mailserver-suite/data/entry/ssl/mail.commandocloudlet.com
-cd ~/dockerproj/docker-mailserver-suite/data/entry/ssl/mail.commandocloudlet.com
+mkdir -p ~/dockerproj/docker-mailserver/data/entry/ssl/mail.commandocloudlet.com
+cd ~/dockerproj/docker-mailserver/data/entry/ssl/mail.commandocloudlet.com
 openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out mail.commandocloudlet.com.crt -keyout mail.commandocloudlet.com.key
 ```
 
 Start the Containers with Docker Compose
 ```bash
-cd ~/dockerproj/docker-mailserver-suite/
+cd ~/dockerproj/docker-mailserver/
 docker-compose up -d
 ```
 
@@ -272,6 +266,18 @@ Starting mail ... done
 Starting docker-mailserver_rainloop_1_d909ad2756f7 ... done
 Starting docker-mailserver_entry_1_1a1132e80324    ... done
 ```
+
+Check the postfix/dovecot container logs
+```bash
+docker logs -f mail
+```
+
+Create a user account for the Email Server
+```bash
+cd ~/dockerproj/docker-mailserver/
+./setup.sh email add username@commandocloudlet.com password
+```
+
 
 Visit http://mail.commandocloudlet.com to access Rainloop email client.  
 To configure Rainloop, visit http://mail.commandocloudlet.com/?admin.
@@ -283,8 +289,9 @@ Password: 12345
 Change the password after login.
 
 ## Current Status
-Currently login into Rainloop web client is unsuccessful.
-System prompts "Authentication failed".
+Login into Rainloop web client is successful.  
+Sending and receiving of emails are successful.
 
-Useful Links:
-[How to Install and Use Docker on Debian 9](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-debian-9)
+Useful Links:  
+[How to Install and Use Docker on Debian 9](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-debian-9)  
+[Building a mailserver with modern webmail](https://www.davd.eu/byecloud-building-a-mailserver-with-modern-webmail/)

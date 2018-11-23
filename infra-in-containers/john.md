@@ -72,8 +72,13 @@ Create link file if running docker-compose gives the error
 ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
 ```
 
-## Spin off an Email Server with Containers
-For testing purposes, a readily deployable email server suite is used.
+## Docker User Guide
+
+
+
+# Spin off an Email Server with Containers
+## Using Docker Hub Images and Docker Compose
+A readily deployable email server suite is used.
 The relevant docker images from public repository are:
 1. tvial/docker-mailserver
 1. hardware/rainloop
@@ -278,6 +283,7 @@ cd ~/dockerproj/docker-mailserver/
 ./setup.sh email add username@commandocloudlet.com password
 ```
 
+## Configure Rainloop
 Visit http://mail.commandocloudlet.com to access Rainloop email client.  
 To configure Rainloop, visit http://mail.commandocloudlet.com/?admin.
 The default root account is
@@ -290,6 +296,9 @@ Change the password after login.
 Add your domain using the admin control panel.
 ![Add domain settings into Rainloop](https://github.com/CloudCommandos/missions/blob/john-progress/infra-in-containers/screenshots/Rainloop_AddDomain.JPG)
 
+
+## Setup Email Relay
+Google Cloud Platform blocks outbound SMTP. Having an email relay server can help to overcome this limitaion.
 
 ## Current Status
 Login into Rainloop web client is successful.  

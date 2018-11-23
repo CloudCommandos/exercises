@@ -137,7 +137,7 @@ vim ~/dockerproj/docker-mailserver/docker-compose.yml
       ports:
       - "25:25"
       - "143:143"
-	    - "465:465"
+      - "465:465"
       - "587:587"
       - "993:993"
       - "4190:4190"
@@ -287,7 +287,9 @@ Password: 12345
 ```
 Change the password after login.
 
+Add your domain using the admin control panel.
 ![Add domain settings into Rainloop](https://github.com/CloudCommandos/missions/blob/john-progress/infra-in-containers/screenshots/Rainloop_AddDomain.JPG)
+
 
 ## Current Status
 Login into Rainloop web client is successful.  

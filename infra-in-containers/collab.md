@@ -294,7 +294,7 @@ Password: 12345
 Change the password after login.
 
 Add your domain using the admin control panel.
-![Add domain settings into Rainloop](https://github.com/CloudCommandos/missions/blob/john-progress/infra-in-containers/screenshots/Rainloop_AddDomain.JPG)
+![Add domain settings into Rainloop](https://github.com/CloudCommandos/missions/blob/CC/infra-in-containers/screenshots/Rainloop_AddDomain.JPG)
 
 
 ## Setup Email Relay

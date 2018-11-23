@@ -72,7 +72,7 @@ Create link file if running docker-compose gives the error
 ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
 ```
 
-## Docker User Guide
+## Docker user guide
 Here are some of the common docker commands:
 
 To fetch a docker image from the Docker registry:
@@ -142,7 +142,7 @@ To run the container with environment variables:
 
 Most of information was referenced from [here](https://docker-curriculum.com).
 
-### Building Customise image
+### Building custom image
 Customisation can be done with the original image and with your own configuration. Configuration files from the local machine can be copy to the original image. This allow you to build a image with your own configuration.
 
 To create a image, a `Dockerfile` is needed. Create a directory and store all the configurations along with the `Dockerfile` inside.

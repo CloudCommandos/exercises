@@ -89,6 +89,10 @@ To run a docker image:
 
 `docker run imagethatyouwanttorun`
 
+To remove a docker image:   
+
+`docker image rm -f imagenameandtag`
+
 Some of the common [options](https://docs.docker.com/engine/reference/commandline/run/) when running `docker run`:
 * `-d` allow the container to run in detach mode. This option allow the container to run at the background and you can continue to use the terminal after the command.
 * `-p port:port` exposed the port from the container to the external port. Example `-p 80:5000` Port 5000 used inside the container will be exposed to the external Port 80
@@ -124,7 +128,7 @@ Alternatively, you can run `docker container prune` to achieve the same result i
 
 To connect to a running container:
 
-`docker exec -it containername/containerID /bin/bash`
+`docker exec -it containername/containerID bash`
 
 With this command, it allows user to enter the bash shell in the container.
 
@@ -391,8 +395,32 @@ Add your domain using the admin control panel.
 
 
 ## Setup Email Relay
-Google Cloud Platform blocks outbound SMTP. Having an email relay server can help to overcome this limitaion.
+Google Cloud Platform blocks outbound SMTP. Having an email relay server can help to overcome this limitation.
 
+Create a free account on [sendgrid](https://sendgrid.com/). Follow the steps to create an api key and save the information.
+
+Create the `mail/config/postfix-sasl-password.cf` for sender dependent authenication
+```bash
+setup.sh relay add-auth <domainname> <api-username> <api-password>
+```
+Create the `mail/config/postfix-relaymap.cf` for sender dependent relay hosts
+```bash
+setup.sh relay add-domain <domainname> <relay-hostname> <port>
+```
+Add the relay-hostname into the .env file
+```bash
+RELAY_HOST=smtp.sendgrip.net
+```
+Stop and remove the containers for the setup to load
+```bash
+docker stop container_name
+docker rm container_name
+```
+Run the containers with the new setup
+```bash
+docker-compose up -d
+```
+Log on to [sendgrid](https://sendgrid.com/) and navigate to Sender Authentication tab under settings to authenticate your domain and also brand your links. Copy the information over to Godaddy and you should be able to send emails with your own branding.   
 ## Current Status
 Login into Rainloop web client is successful.  
 Sending and receiving of emails are successful.

@@ -21,10 +21,16 @@ gcloud compute images create your-nested-vm-enabled-image \
   --licenses "https://www.googleapis.com/compute/v1/projects/vm-options/global/licenses/enable-vmx" \
   --guest-os-features MULTI_IP_SUBNET
 ```
+<<<<<<< HEAD
+Ref 1: https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances
+
+Ref 2: https://cloud.google.com/vpc/docs/create-use-multiple-interfaces
+=======
 
 References:
   1. [Enable Nested Virtualization VM Instances on GCP](https://cloud.google.com/compute/docs/instances/enable-nested-virtualization-vm-instances)
   1. [Enabling Multi-IP Network Interfaces on GCP](https://cloud.google.com/vpc/docs/create-use-multiple-interfaces)
+>>>>>>> 1cb9cfe35fb05852feaff1d2f4b505d3d1d676ec
 
 Also create a new Virtual Private Cloud (VPC) network. 
 This is to allow you to create the instances with two network interfaces on separate networks, which is required for HA.

@@ -94,7 +94,7 @@ docker pull abiosoft/caddy
 
 Also download tvial/docker-mailserver's configuration files
 ```bash
-curl -o setup.sh https://raw.githubusercontent.com/tomav/docker-mailserver/master/setup.sh; 
+curl -o setup.sh https://raw.githubusercontent.com/tomav/docker-mailserver/master/setup.sh;
 chmod a+x ./setup.sh;
 curl -o docker-compose.yml https://raw.githubusercontent.com/tomav/docker-mailserver/master/docker-compose.yml.dist
 curl -o .env https://raw.githubusercontent.com/tomav/docker-mailserver/master/.env.dist
@@ -107,6 +107,7 @@ vim ~/dockerproj/docker-mailserver-suite/.env
   HOSTNAME=mail
   DOMAINNAME=commandocloudlet.com
   CONTAINER_NAME=mail
+  SSL_TYPE=manual
 ```
 
 Edit the email server suite's docker compose startup file

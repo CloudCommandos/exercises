@@ -1,0 +1,31 @@
+---
+- hosts: localhost
+  remote_user: root
+  vars:
+    base_path: ~/dockerproj/docker-mailserver
+  vars_prompt:
+    - name: "domain"
+      prompt: "What is your domain name? (e.g. example.com)"
+      private: no
+    - name: "email_username"
+      prompt: "We will be creating one email account. Please enter the login account id (e.g. user@example.com)"
+      private: no
+    - name: "email_password"
+      prompt: "account password"
+      confirm: yes
+      
+  tasks:
+    - name: Ensure {{base_path}} exists
+      file: path={{base_path}} state=directory
+    - name: "download docker-compose.yml"
+      get_url:
+        url: https://github.com/CloudCommandos/missions/blob/CC/infra-in-containers/resources/docker-compose.yml
+        dest: "{{base_path}}/docker-compose.yml"
+    - name: "download .env"
+      get_url:
+        url: https://github.com/CloudCommandos/missions/blob/CC/infra-in-containers/resources/env.txt
+        dest: "{{base_path}}/.env"
+    - name: "download setup.sh"
+      get_url:
+        url: https://github.com/CloudCommandos/missions/blob/CC/infra-in-containers/resources/setup.sh
+        dest: "{{base_path}}/setup.sh"

@@ -62,11 +62,11 @@
         line: 'DOMAINNAME={{domain}}'
         
     - name: "setup first email account"
-      shell: "{{base_path}}/setup.sh email add {{email_username}} {{email_password}}"
+      command: "{{base_path}}/setup.sh email add {{email_username}} {{email_password}}"
       ignore_errors: yes
     - name: "setup email relay domain"
-      shell: "{{base_path}}/setup.sh relay add-domain {{domain}} {{relay_host}} {{relay_port}}"
+      command: "{{base_path}}/setup.sh relay add-domain {{domain}} {{relay_host}} {{relay_port}}"
       ignore_errors: yes
     - name: "setup email relay auth"
-      shell: "{{base_path}}/setup.sh relay add-auth {{domain}} {{relay_username}} {{relay_key}}"
+      command: "{{base_path}}/setup.sh relay add-auth {{domain}} {{relay_username}} {{relay_key}}"
       ignore_errors: yes

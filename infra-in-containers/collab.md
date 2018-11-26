@@ -211,6 +211,8 @@ HOSTNAME=mail
 DOMAINNAME=commandocloudlet.com
 CONTAINER_NAME=mail
 SSL_TYPE=manual
+SSL_CERT_PATH=/tmp/ssl/ssl.crt
+SSL_KEY_PATH=/tmp/ssl/ssl.key
 ```
 
 Edit the email server suite's docker compose startup file
@@ -258,8 +260,6 @@ services:
     - REPORT_INTERVAL=${REPORT_INTERVAL}
     - SMTP_ONLY=${SMTP_ONLY}
     - SSL_TYPE=${SSL_TYPE}
-    - SSL_CERT_PATH=/tmp/ssl/mail.commandocloudlet.com.crt
-    - SSL_KEY_PATH=/tmp/ssl/mail.commandocloudlet.com.key
     - TLS_LEVEL=${TLS_LEVEL}
     - SPOOF_PROTECTION=${SPOOF_PROTECTION}
     - ENABLE_SRS=${ENABLE_SRS}
@@ -357,7 +357,7 @@ Create SSL Certificate
 apt-get install openssl
 mkdir -p ~/dockerproj/docker-mailserver/ssl
 cd ~/dockerproj/docker-mailserver/ssl
-openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out mail.commandocloudlet.com.crt -keyout mail.commandocloudlet.com.key
+openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out ssl.crt -keyout ssl.key
 ```
 
 Create a user account for the Email Server

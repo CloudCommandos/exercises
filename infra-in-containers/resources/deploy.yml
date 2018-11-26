@@ -19,13 +19,22 @@
       file: path={{base_path}} state=directory
     - name: "download docker-compose.yml"
       get_url:
-        url: https://github.com/CloudCommandos/missions/blob/CC/infra-in-containers/resources/docker-compose.yml
+        url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/docker-compose.yml
         dest: "{{base_path}}/docker-compose.yml"
+        force: yes
     - name: "download .env"
       get_url:
-        url: https://github.com/CloudCommandos/missions/blob/CC/infra-in-containers/resources/env.txt
+        url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/env.txt
         dest: "{{base_path}}/.env"
+        force: yes
     - name: "download setup.sh"
       get_url:
-        url: https://github.com/CloudCommandos/missions/blob/CC/infra-in-containers/resources/setup.sh
+        url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/setup.sh
         dest: "{{base_path}}/setup.sh"
+        force: yes
+        
+    - name: "edit domain name in .env"
+      lineinfile:
+        dest: "{{base_path}}/.env"
+        regexp: '^DOMAINNAME='
+        line: 'DOMAINNAME={{domain}}'

@@ -424,6 +424,10 @@ docker-compose restart
 ```
 
 Log on to [sendgrid](https://sendgrid.com/) and navigate to Sender Authentication tab under settings to authenticate your domain and also brand your links. Copy the information over to Godaddy (or your domain registrar of choice) and you should be able to send emails with your own domain branding.   
+
+## Automate with Ansible
+
+
 ## Current Status
 Login into Rainloop web client is successful.  
 Sending and receiving of emails are successful.

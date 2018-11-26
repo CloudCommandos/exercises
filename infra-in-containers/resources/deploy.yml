@@ -6,13 +6,32 @@
   vars_prompt:
     - name: "domain"
       prompt: "What is your domain name? (e.g. example.com)"
+      default: "commandocloudlet.com"
       private: no
     - name: "email_username"
       prompt: "We will be creating one email account. Please enter the login account id (e.g. user@example.com)"
+      default: "jiunnyuan@commandocloudlet.com"
       private: no
     - name: "email_password"
       prompt: "account password"
+      private: yes
       confirm: yes
+    - name: "relay_host"
+      prompt: "What is your email relay host?"
+      default: "smtp.sendgrid.net"
+      private: no
+    - name: "relay_port"
+      prompt: "What is your email relay port?"
+      default: "587"
+      private: no
+    - name: "relay_username"
+      prompt: "What is your email relay username?"
+      default: "apikey"
+      private: no
+    - name: "relay_key"
+      prompt: "What is your email relay password?"
+      default: "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"
+      private: no
       
   tasks:
     - name: Ensure {{base_path}} exists
@@ -21,16 +40,19 @@
       get_url:
         url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/docker-compose.yml
         dest: "{{base_path}}/docker-compose.yml"
+        mode: 0700
         force: yes
     - name: "download .env"
       get_url:
         url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/env.txt
         dest: "{{base_path}}/.env"
+        mode: 0700
         force: yes
     - name: "download setup.sh"
       get_url:
         url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/setup.sh
         dest: "{{base_path}}/setup.sh"
+        mode: 0700
         force: yes
         
     - name: "edit domain name in .env"
@@ -38,3 +60,13 @@
         dest: "{{base_path}}/.env"
         regexp: '^DOMAINNAME='
         line: 'DOMAINNAME={{domain}}'
+        
+    - name: "setup first email account"
+      shell: "{{base_path}}/setup.sh email add {{email_username}} {{email_password}}"
+      ignore_errors: yes
+    - name: "setup email relay domain"
+      shell: "{{base_path}}/setup.sh relay add-domain {{domain}} {{relay_host}} {{relay_port}}"
+      ignore_errors: yes
+    - name: "setup email relay auth"
+      shell: "{{base_path}}/setup.sh relay add-auth {{domain}} {{relay_username}} {{relay_key}}"
+      ignore_errors: yes

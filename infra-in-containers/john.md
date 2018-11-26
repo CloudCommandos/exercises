@@ -104,7 +104,7 @@ Edit the email server suite's docker compose startup file
 ```bash
 vim ~/dockerproj/docker-mailserver-suite/docker-compose.yml
 
-  version: '3'
+  version: '2'
   services:
     rainloop:
       image: hardware/rainloop

@@ -56,20 +56,9 @@ sudo apt install docker-ce
 ```
 
 ## Install Docker Compose
-Install Docker Compose with curl.
+Install Docker Compose
 ```bash
-sudo curl -L "https://github.com/docker/compose/releases/download/1.23.1/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-```
-Give execute permission to the docker-compose binary.
-```bash
-sudo chmod +x /usr/local/bin/docker-compose
-```
-Create link file if running docker-compose gives the error
-```bash
--su: /usr/bin/docker-compose: No such file or directory
-```
-```bash
-ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
+sudo apt-get install docker-compose
 ```
 
 ## Docker user guide
@@ -228,7 +217,7 @@ Edit the email server suite's docker compose startup file
 ```bash
 vim ~/dockerproj/docker-mailserver/docker-compose.yml
 
-version: '3'
+version: '2'
 services:
   rainloop:
     container_name: rainloop
@@ -253,7 +242,7 @@ services:
     - maildata:/var/mail
     - mailstate:/var/mail-state
     - ./config/:/tmp/docker-mailserver/
-    - ./data/entry/ssl/mail.commandocloudlet.com:/tmp/ssl:ro
+    - ./ssl:/tmp/ssl:ro
     environment:
     - DMS_DEBUG=${DMS_DEBUG}
     - ENABLE_CLAMAV=${ENABLE_CLAMAV}
@@ -366,8 +355,8 @@ http://mail.commandocloudlet.com {
 Create SSL Certificate
 ```bash
 apt-get install openssl
-mkdir -p ~/dockerproj/docker-mailserver/data/entry/ssl/mail.commandocloudlet.com
-cd ~/dockerproj/docker-mailserver/data/entry/ssl/mail.commandocloudlet.com
+mkdir -p ~/dockerproj/docker-mailserver/ssl
+cd ~/dockerproj/docker-mailserver/ssl
 openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out mail.commandocloudlet.com.crt -keyout mail.commandocloudlet.com.key
 ```
 

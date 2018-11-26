@@ -17,7 +17,7 @@ Pros:
 1. On-demand resource usage
 
 Cons:  
-1. Less secure due to isolation at a higher level
+1. Less secure due to isolation at a higher level (hybrid solution exists to overcome this, e.g. Kata)
 1. Only Containers of the same OS can be hosted on the same server (deployment constrain)
 1. Isolation level constrained by networking requirements
 
@@ -76,102 +76,107 @@ ln -sf /usr/local/bin/docker-compose /usr/bin/docker-compose
 Here are some of the common docker commands:
 
 To fetch a docker image from the Docker registry:
-
-`docker pull imagethatyouwant`
-
+```bash
+docker pull imagethatyouwant
+```
 
 
 To list the docker images in your system:
-
-`docker images`
+```bash
+docker images
+```
 
 To run a docker image:
-
-`docker run imagethatyouwanttorun`
+```bash
+docker run imagethatyouwanttorun
+```
 
 To remove a docker image:   
-
-`docker image rm -f imagenameandtag`
+```bash
+docker image rm -f imagenameandtag
+```
 
 Some of the common [options](https://docs.docker.com/engine/reference/commandline/run/) when running `docker run`:
-* `-d` allow the container to run in detach mode. This option allow the container to run at the background and you can continue to use the terminal after the command.
-* `-p port:port` exposed the port from the container to the external port. Example `-p 80:5000` Port 5000 used inside the container will be exposed to the external Port 80
+* `-d` allow the container to run in detach mode. This option allows the container to run in the background and you can continue to use the terminal after the command.
+* `-p port:port` expose the port from the container to the external port. Example `-p 80:5000` Port 5000 used inside the container will be exposed to the external Port 80.
 * `-e` run the container with environment variable.
 
 To list the current running container:
+```bash
+docker ps
+```
 
-`docker ps`
-
-add the option `-a` and this will show the running container and container that was ran. From the list, you should be able to see which container has exited or running.
+add the option `-a` and this will show the running containers and containers that was ran. From the list, you should be able to see which container has exited or is currently running.
 
 To stop a running container:
+```bash
+docker stop containerID
+```
 
-`docker stop containerID`
-
-The container ID is shown at the first column when running the command `docker ps` or `docker ps -a`.
-
+The container ID is shown in the first column when running the command `docker ps` or `docker ps -a`.
 To interact and run command in the container:
+```bash
+docker run -it yourcontainer sh
+```
 
-`docker run -it yourcontainer sh`
-
-Once the container exited, try to always remove the container as it takes up disk space.
-
+If your services are stateless, once their containers are exited, try to always remove the containers as they take up disk space.
 To remove container:
+```bash
+docker rm containerID
+```
 
-`docker rm containerID`
-
-If you like to remove a list of exited containers without having to copy every single container ID, simply run this command:
-
-`docker rm $(docker ps -a -q -f status=exited)`
+If you would like to remove a list of exited containers without having to copy every single container ID, simply run this command:
+```bash
+docker rm $(docker ps -a -q -f status=exited)
+```
 
 Alternatively, you can run `docker container prune` to achieve the same result in removing all the exited containers.
 
-To connect to a running container:
+This command allows the user to enter the bash shell of a running container.
+```bash
+docker exec -it containername/containerID bash
+```
 
-`docker exec -it containername/containerID bash`
-
-With this command, it allows user to enter the bash shell in the container.
-
-At times, environment variables are needed when running a container, and this environment variables can be stored in a file.
+At times, environment variables are needed when running a container, and these environment variables can be stored in a file.
 
 Create a file named `.env` and store the values of each environment variables that you want.
 
 To run the container with environment variables:
+```bash
+docker run --env-file=.env yourcontainer
+```
 
-`docker run --env-file=.env yourcontainer`
-
-Most of information was referenced from [here](https://docker-curriculum.com).
+Most of the information are referenced from [here](https://docker-curriculum.com).
 
 ### Building custom image
-Customisation can be done with the original image and with your own configuration. Configuration files from the local machine can be copy to the original image. This allow you to build a image with your own configuration.
+Customisation can be done with the original image and with your own configuration. Configuration files from the local machine can be copied over to the original image. This allows you to build an image with your own configuration.
 
-To create a image, a `Dockerfile` is needed. Create a directory and store all the configurations along with the `Dockerfile` inside.
+To create an image, a `Dockerfile` is required. Create a directory and store all the configurations along with the `Dockerfile` inside.
 
-Store the configuration files in a sub directory to have a better organisation on the files.
+Store the configuration files in a sub directory to have a better organisation of the files.
 
-let's build a image with [your own configuration with Nginx based image](https://www.nginx.com/blog/deploying-nginx-nginx-plus-docker/). An example of a `Dockerfile` is shown below.
+let's build an image with [your own configuration with Nginx based image](https://www.nginx.com/blog/deploying-nginx-nginx-plus-docker/). An example of a `Dockerfile` is shown below.
 ```bash
 FROM nginx
 COPY content /usr/share/nginx/html
 COPY conf /etc/nginx
 ```
-* First line indicates the image that will be pull from either locally or docker hub
-* The next line is to do a copy from the local folder `content` contents into the Nginx based image /usr/share/nignx/html. Note that the `content` and `conf` folder are both located within the same directory with Dockerfile
+* First line specifies the image that will be pulled either locally or from docker hub.
+* The next line is to copy the contents from the local folder `content` into the Nginx-based image's /usr/share/nignx/html. Note that the `content` and `conf` folder are both located within the same directory as the Dockerfile.
 
 Next, run the following command to build your own image.
-
-`docker build -t mynginx .`
-
-The name of the image will be named as `mynginx` and the `.` is to indicate the current working directory with all the folders and Dockerfile.
-
+```bash
+docker build -t mynginx .
+```
+The name of the image will be named as `mynginx` and the `.` is to indicate the current working directory with all the folders and Dockerfile.  
 The customised image should be built. Try to run this image and test if the container is working with your configuration.
 
 ### Push image to personal Docker Hub
 
-The customised image can be push to a personal Docker Hub account. Thereafter, this will be available remotely for pulling. To do this, login into your docker hub account on your machine. The command to login is `docker login`. Enter your username and password when prompt.
+The customised image can be pushed to a personal Docker Hub account. Thereafter, the image will be available remotely for pulling. To do this, login into your docker hub account on your machine. The command to login is `docker login`. Enter your username and password when prompted to do so.
 
-You may also commit a container to an image which you ran previously. use `docker ps -a` to check the container ID of the container you want to commit. Next use the command `docker commit containerID imagename`. The new image will be created and can be verified by using `docker images`. You can also do `docker tag` to give a more detailed tag on the image.
-Lastly, use `docker push imagename` and the image will be push to your personal Docker Hub.
+You may also commit a container to an image that you had ran previously. use `docker ps -a` to check the container ID of the container that you want to commit. Next, use the command `docker commit containerID imagename`. The new image will be created and can be verified by using `docker images`. You can also use `docker tag` to give a more detailed tag on the image.
+Lastly, use `docker push imagename` and the image will be pushed to your personal Docker Hub.
 
 # Spin off an Email Server with Containers
 ## Using Docker Hub Images and Docker Compose
@@ -213,139 +218,149 @@ Edit some of the environment parameters
 ```bash
 vim ~/dockerproj/docker-mailserver/.env
 
-  HOSTNAME=mail
-  DOMAINNAME=commandocloudlet.com
-  CONTAINER_NAME=mail
-  SSL_TYPE=manual
+HOSTNAME=mail
+DOMAINNAME=commandocloudlet.com
+CONTAINER_NAME=mail
+SSL_TYPE=manual
 ```
 
 Edit the email server suite's docker compose startup file
 ```bash
 vim ~/dockerproj/docker-mailserver/docker-compose.yml
 
-  version: '3'
-  services:
-    rainloop:
-      image: hardware/rainloop
-      links:
-      - mail
-      volumes:
-      - ./data/rainloop:/rainloop/data
-    mail:
-      image: tvial/docker-mailserver:latest
-      hostname: ${HOSTNAME}
-      domainname: ${DOMAINNAME}
-      container_name: ${CONTAINER_NAME}
-      ports:
-      - "25:25"
-      - "143:143"
-      - "465:465"
-      - "587:587"
-      - "993:993"
-      - "4190:4190"
-      volumes:
-      - ./data/mail/data:/var/mail
-      - ./data/mail/state:/var/mail-state
-      - ./mail/config/:/tmp/docker-mailserver/
-      - ./data/entry/ssl/mail.commandocloudlet.com:/tmp/ssl:ro
-      environment:
-      - DMS_DEBUG=${DMS_DEBUG}
-      - ENABLE_CLAMAV=${ENABLE_CLAMAV}
-      - ONE_DIR=${ONE_DIR}
-      - ENABLE_POP3=${ENABLE_POP3}
-      - ENABLE_FAIL2BAN=${ENABLE_FAIL2BAN}
-      - ENABLE_MANAGESIEVE=${ENABLE_MANAGESIEVE}
-      - OVERRIDE_HOSTNAME=${OVERRIDE_HOSTNAME}
-      - POSTMASTER_ADDRESS=${POSTMASTER_ADDRESS}
-      - POSTSCREEN_ACTION=${POSTSCREEN_ACTION}
-      - REPORT_RECIPIENT=${REPORT_RECIPIENT}
-      - REPORT_SENDER=${REPORT_SENDER}
-      - REPORT_INTERVAL=${REPORT_INTERVAL}
-      - SMTP_ONLY=${SMTP_ONLY}
-      - SMTP_ONLY=${SMTP_ONLY}
-      - SSL_TYPE=${SSL_TYPE}
-      - SSL_CERT_PATH=/tmp/ssl/mail.commandocloudlet.com.crt
-      - SSL_KEY_PATH=/tmp/ssl/mail.commandocloudlet.com.key
-      - TLS_LEVEL=${TLS_LEVEL}
-      - SPOOF_PROTECTION=${SPOOF_PROTECTION}
-      - ENABLE_SRS=${ENABLE_SRS}
-      - PERMIT_DOCKER=${PERMIT_DOCKER}
-      - VIRUSMAILS_DELETE_DELAY=${VIRUSMAILS_DELETE_DELAY}
-      - ENABLE_POSTFIX_VIRTUAL_TRANSPORT=${ENABLE_POSTFIX_VIRTUAL_TRANSPORT}
-      - POSTFIX_DAGENT=${POSTFIX_DAGENT}
-      - POSTFIX_MAILBOX_SIZE_LIMIT=${POSTFIX_MAILBOX_SIZE_LIMIT}
-      - POSTFIX_MESSAGE_SIZE_LIMIT=${POSTFIX_MESSAGE_SIZE_LIMIT}
-      - ENABLE_SPAMASSASSIN=${ENABLE_SPAMASSASSIN}
-      - SA_TAG=${SA_TAG}
-      - SA_TAG2=${SA_TAG2}
-      - SA_KILL=${SA_KILL}
-      - SA_SPAM_SUBJECT=${SA_SPAM_SUBJECT}
-      - ENABLE_FETCHMAIL=${ENABLE_FETCHMAIL}
-      - FETCHMAIL_POLL=${FETCHMAIL_POLL}
-      - ENABLE_LDAP=${ENABLE_LDAP}
-      - LDAP_START_TLS=${LDAP_START_TLS}
-      - LDAP_SERVER_HOST=${LDAP_SERVER_HOST}
-      - LDAP_SEARCH_BASE=${LDAP_SEARCH_BASE}
-      - LDAP_BIND_DN=${LDAP_BIND_DN}
-      - LDAP_BIND_PW=${LDAP_BIND_PW}
-      - LDAP_QUERY_FILTER_USER=${LDAP_QUERY_FILTER_USER}
-      - LDAP_QUERY_FILTER_GROUP=${LDAP_QUERY_FILTER_GROUP}
-      - LDAP_QUERY_FILTER_ALIAS=${LDAP_QUERY_FILTER_ALIAS}
-      - LDAP_QUERY_FILTER_DOMAIN=${LDAP_QUERY_FILTER_DOMAIN}
-      - DOVECOT_TLS=${DOVECOT_TLS}
-      - DOVECOT_USER_FILTER=${DOVECOT_USER_FILTER}
-      - DOVECOT_PASS_FILTER=${DOVECOT_PASS_FILTER}
-      - ENABLE_POSTGREY=${ENABLE_POSTGREY}
-      - POSTGREY_DELAY=${POSTGREY_DELAY}
-      - POSTGREY_MAX_AGE=${POSTGREY_MAX_AGE}
-      - POSTGREY_AUTO_WHITELIST_CLIENTS=${POSTGREY_AUTO_WHITELIST_CLIENTS}
-      - POSTGREY_TEXT=${POSTGREY_TEXT}
-      - ENABLE_SASLAUTHD=${ENABLE_SASLAUTHD}
-      - SASLAUTHD_MECHANISMS=${SASLAUTHD_MECHANISMS}
-      - SASLAUTHD_MECH_OPTIONS=${SASLAUTHD_MECH_OPTIONS}
-      - SASLAUTHD_LDAP_SERVER=${SASLAUTHD_LDAP_SERVER}
-      - SASLAUTHD_LDAP_SSL=${SASLAUTHD_LDAP_SSL}
-      - SASLAUTHD_LDAP_BIND_DN=${SASLAUTHD_LDAP_BIND_DN}
-      - SASLAUTHD_LDAP_PASSWORD=${SASLAUTHD_LDAP_PASSWORD}
-      - SASLAUTHD_LDAP_SEARCH_BASE=${SASLAUTHD_LDAP_SEARCH_BASE}
-      - SASLAUTHD_LDAP_FILTER=${SASLAUTHD_LDAP_FILTER}
-      - SASLAUTHD_LDAP_START_TLS=${SASLAUTHD_LDAP_START_TLS}
-      - SASLAUTHD_LDAP_TLS_CHECK_PEER=${SASLAUTHD_LDAP_TLS_CHECK_PEER}
-      - SASL_PASSWD=${SASL_PASSWD}
-      - SRS_EXCLUDE_DOMAINS=${SRS_EXCLUDE_DOMAINS}
-      - SRS_SECRET=${SRS_SECRET}
-      - RELAY_HOST=${RELAY_HOST}
-      - RELAY_PORT=${RELAY_PORT}
-      - RELAY_USER=${RELAY_USER}
-      - RELAY_PASSWORD=${RELAY_PASSWORD}
-      cap_add:
-      - NET_ADMIN
-      - SYS_PTRACE
-      restart: always
+version: '3'
+services:
+  rainloop:
+    container_name: rainloop
+    image: hardware/rainloop
+    links:
+    - mail
+    volumes:
+    - rainloop_data:/rainloop/data
+  mail:
+    image: tvial/docker-mailserver:latest
+    hostname: ${HOSTNAME}
+    domainname: ${DOMAINNAME}
+    container_name: ${CONTAINER_NAME}
+    ports:
+    - "25:25"
+    - "143:143"
+    - "465:465"
+    - "587:587"
+    - "993:993"
+    - "4190:4190"
+    volumes:
+    - maildata:/var/mail
+    - mailstate:/var/mail-state
+    - ./config/:/tmp/docker-mailserver/
+    - ./data/entry/ssl/mail.commandocloudlet.com:/tmp/ssl:ro
+    environment:
+    - DMS_DEBUG=${DMS_DEBUG}
+    - ENABLE_CLAMAV=${ENABLE_CLAMAV}
+    - ONE_DIR=${ONE_DIR}
+    - ENABLE_POP3=${ENABLE_POP3}
+    - ENABLE_FAIL2BAN=${ENABLE_FAIL2BAN}
+    - ENABLE_MANAGESIEVE=${ENABLE_MANAGESIEVE}
+    - OVERRIDE_HOSTNAME=${OVERRIDE_HOSTNAME}
+    - POSTMASTER_ADDRESS=${POSTMASTER_ADDRESS}
+    - POSTSCREEN_ACTION=${POSTSCREEN_ACTION}
+    - REPORT_RECIPIENT=${REPORT_RECIPIENT}
+    - REPORT_SENDER=${REPORT_SENDER}
+    - REPORT_INTERVAL=${REPORT_INTERVAL}
+    - SMTP_ONLY=${SMTP_ONLY}
+    - SSL_TYPE=${SSL_TYPE}
+    - SSL_CERT_PATH=/tmp/ssl/mail.commandocloudlet.com.crt
+    - SSL_KEY_PATH=/tmp/ssl/mail.commandocloudlet.com.key
+    - TLS_LEVEL=${TLS_LEVEL}
+    - SPOOF_PROTECTION=${SPOOF_PROTECTION}
+    - ENABLE_SRS=${ENABLE_SRS}
+    - PERMIT_DOCKER=${PERMIT_DOCKER}
+    - VIRUSMAILS_DELETE_DELAY=${VIRUSMAILS_DELETE_DELAY}
+    - ENABLE_POSTFIX_VIRTUAL_TRANSPORT=${ENABLE_POSTFIX_VIRTUAL_TRANSPORT}
+    - POSTFIX_DAGENT=${POSTFIX_DAGENT}
+    - POSTFIX_MAILBOX_SIZE_LIMIT=${POSTFIX_MAILBOX_SIZE_LIMIT}
+    - POSTFIX_MESSAGE_SIZE_LIMIT=${POSTFIX_MESSAGE_SIZE_LIMIT}
+    - ENABLE_SPAMASSASSIN=${ENABLE_SPAMASSASSIN}
+    - SA_TAG=${SA_TAG}
+    - SA_TAG2=${SA_TAG2}
+    - SA_KILL=${SA_KILL}
+    - SA_SPAM_SUBJECT=${SA_SPAM_SUBJECT}
+    - ENABLE_FETCHMAIL=${ENABLE_FETCHMAIL}
+    - FETCHMAIL_POLL=${FETCHMAIL_POLL}
+    - ENABLE_LDAP=${ENABLE_LDAP}
+    - LDAP_START_TLS=${LDAP_START_TLS}
+    - LDAP_SERVER_HOST=${LDAP_SERVER_HOST}
+    - LDAP_SEARCH_BASE=${LDAP_SEARCH_BASE}
+    - LDAP_BIND_DN=${LDAP_BIND_DN}
+    - LDAP_BIND_PW=${LDAP_BIND_PW}
+    - LDAP_QUERY_FILTER_USER=${LDAP_QUERY_FILTER_USER}
+    - LDAP_QUERY_FILTER_GROUP=${LDAP_QUERY_FILTER_GROUP}
+    - LDAP_QUERY_FILTER_ALIAS=${LDAP_QUERY_FILTER_ALIAS}
+    - LDAP_QUERY_FILTER_DOMAIN=${LDAP_QUERY_FILTER_DOMAIN}
+    - DOVECOT_TLS=${DOVECOT_TLS}
+    - DOVECOT_USER_FILTER=${DOVECOT_USER_FILTER}
+    - DOVECOT_PASS_FILTER=${DOVECOT_PASS_FILTER}
+    - ENABLE_POSTGREY=${ENABLE_POSTGREY}
+    - POSTGREY_DELAY=${POSTGREY_DELAY}
+    - POSTGREY_MAX_AGE=${POSTGREY_MAX_AGE}
+    - POSTGREY_AUTO_WHITELIST_CLIENTS=${POSTGREY_AUTO_WHITELIST_CLIENTS}
+    - POSTGREY_TEXT=${POSTGREY_TEXT}
+    - ENABLE_SASLAUTHD=${ENABLE_SASLAUTHD}
+    - SASLAUTHD_MECHANISMS=${SASLAUTHD_MECHANISMS}
+    - SASLAUTHD_MECH_OPTIONS=${SASLAUTHD_MECH_OPTIONS}
+    - SASLAUTHD_LDAP_SERVER=${SASLAUTHD_LDAP_SERVER}
+    - SASLAUTHD_LDAP_SSL=${SASLAUTHD_LDAP_SSL}
+    - SASLAUTHD_LDAP_BIND_DN=${SASLAUTHD_LDAP_BIND_DN}
+    - SASLAUTHD_LDAP_PASSWORD=${SASLAUTHD_LDAP_PASSWORD}
+    - SASLAUTHD_LDAP_SEARCH_BASE=${SASLAUTHD_LDAP_SEARCH_BASE}
+    - SASLAUTHD_LDAP_FILTER=${SASLAUTHD_LDAP_FILTER}
+    - SASLAUTHD_LDAP_START_TLS=${SASLAUTHD_LDAP_START_TLS}
+    - SASLAUTHD_LDAP_TLS_CHECK_PEER=${SASLAUTHD_LDAP_TLS_CHECK_PEER}
+    - SASL_PASSWD=${SASL_PASSWD}
+    - SRS_EXCLUDE_DOMAINS=${SRS_EXCLUDE_DOMAINS}
+    - SRS_SECRET=${SRS_SECRET}
+    - RELAY_HOST=${RELAY_HOST}
+    - RELAY_PORT=${RELAY_PORT}
+    - RELAY_USER=${RELAY_USER}
+    - RELAY_PASSWORD=${RELAY_PASSWORD}
+    cap_add:
+    - NET_ADMIN
+    - SYS_PTRACE
+    restart: always
 
-    entry:
-      image: abiosoft/caddy:0.10.4
-      restart: always
-      privileged: true
-      links:
-        - rainloop
-      ports:
-        - "80:80"
-        - "443:443"
-      volumes:
-        - ./entry/Caddyfile:/etc/Caddyfile
-        - ./data/entry:/root/.caddy
+  entry:
+    container_name: entry
+    image: abiosoft/caddy:0.10.4
+    restart: always
+    privileged: true
+    links:
+      - rainloop
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./entry/Caddyfile:/etc/Caddyfile
+      - caddy_data:/root/.caddy
+volumes:
+  maildata:
+    driver: local
+  mailstate:
+    driver: local
+  rainloop_data:
+    driver: local
+  caddy_data:
+    driver: local
 ```
 
 Create Caddy's configuration Caddyfile
 ```bash
 vim ~/dockerproj/docker-mailserver/entry/Caddyfile
 
-  http://mail.commandocloudlet.com {
-      proxy / rainloop:8888 {
-          transparent
-      }
+http://mail.commandocloudlet.com {
+  proxy / rainloop:8888 {
+      transparent
   }
+}
 ```
 
 Create SSL Certificate
@@ -354,6 +369,12 @@ apt-get install openssl
 mkdir -p ~/dockerproj/docker-mailserver/data/entry/ssl/mail.commandocloudlet.com
 cd ~/dockerproj/docker-mailserver/data/entry/ssl/mail.commandocloudlet.com
 openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out mail.commandocloudlet.com.crt -keyout mail.commandocloudlet.com.key
+```
+
+Create a user account for the Email Server
+```bash
+cd ~/dockerproj/docker-mailserver/
+./setup.sh email add username@commandocloudlet.com password
 ```
 
 Start the Containers with Docker Compose
@@ -365,19 +386,13 @@ docker-compose up -d
 If the containers are started successfully, you should see the following prompt
 ```bash
 Starting mail ... done
-Starting docker-mailserver_rainloop_1_d909ad2756f7 ... done
-Starting docker-mailserver_entry_1_1a1132e80324    ... done
+Starting rainloop ... done
+Starting entry    ... done
 ```
 
 Check the postfix/dovecot container logs
 ```bash
 docker logs -f mail
-```
-
-Create a user account for the Email Server
-```bash
-cd ~/dockerproj/docker-mailserver/
-./setup.sh email add username@commandocloudlet.com password
 ```
 
 ## Configure Rainloop
@@ -399,28 +414,27 @@ Google Cloud Platform blocks outbound SMTP. Having an email relay server can hel
 
 Create a free account on [sendgrid](https://sendgrid.com/). Follow the steps to create an api key and save the information.
 
-Create the `mail/config/postfix-sasl-password.cf` for sender dependent authenication
-```bash
-setup.sh relay add-auth <domainname> <api-username> <api-password>
-```
-Create the `mail/config/postfix-relaymap.cf` for sender dependent relay hosts
+Create the `./config/postfix-relaymap.cf` for relay host info
 ```bash
 setup.sh relay add-domain <domainname> <relay-hostname> <port>
 ```
-Add the relay-hostname into the .env file
+
+Create the `./config/postfix-sasl-password.cf` for relay authentication
+```bash
+setup.sh relay add-auth <domainname> <api-username> <api-password>
+```
+
+Add the relay hostname into the .env file
 ```bash
 RELAY_HOST=smtp.sendgrip.net
 ```
-Stop and remove the containers for the setup to load
+
+Restart the containers for the new settings to take effect
 ```bash
-docker stop container_name
-docker rm container_name
+docker-compose restart
 ```
-Run the containers with the new setup
-```bash
-docker-compose up -d
-```
-Log on to [sendgrid](https://sendgrid.com/) and navigate to Sender Authentication tab under settings to authenticate your domain and also brand your links. Copy the information over to Godaddy and you should be able to send emails with your own branding.   
+
+Log on to [sendgrid](https://sendgrid.com/) and navigate to Sender Authentication tab under settings to authenticate your domain and also brand your links. Copy the information over to Godaddy (or your domain registrar of choice) and you should be able to send emails with your own domain branding.   
 ## Current Status
 Login into Rainloop web client is successful.  
 Sending and receiving of emails are successful.

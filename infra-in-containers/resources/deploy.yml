@@ -121,6 +121,6 @@
       ignore_errors: yes
 
     - name: "restart docker containers"
-      command: docker-compose restart
+      command: docker-compose up -d
       args:
         chdir: "{{base_path}}/"

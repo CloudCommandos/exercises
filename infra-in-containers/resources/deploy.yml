@@ -40,19 +40,19 @@
       get_url:
         url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/docker-compose.yml
         dest: "{{base_path}}/docker-compose.yml"
-        mode: 0700
+        mode: 0777
         force: yes
     - name: "download .env"
       get_url:
         url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/env.txt
         dest: "{{base_path}}/.env"
-        mode: 0700
+        mode: 0777
         force: yes
     - name: "download setup.sh"
       get_url:
         url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/setup.sh
         dest: "{{base_path}}/setup.sh"
-        mode: 0700
+        mode: 0777
         force: yes
         
     - name: "edit domain name in .env"
@@ -60,13 +60,19 @@
         dest: "{{base_path}}/.env"
         regexp: '^DOMAINNAME='
         line: 'DOMAINNAME={{domain}}'
-        
+    
     - name: "setup first email account"
-      command: "{{base_path}}/setup.sh email add {{email_username}} {{email_password}}"
+      command: "sh setup.sh email add {{email_username}} {{email_password}}"
+      args:
+        chdir: "{{base_path}}/"
       ignore_errors: yes
     - name: "setup email relay domain"
-      command: "{{base_path}}/setup.sh relay add-domain {{domain}} {{relay_host}} {{relay_port}}"
+      command: "sh setup.sh relay add-domain {{domain}} {{relay_host}} {{relay_port}}"
+      args:
+        chdir: "{{base_path}}/"
       ignore_errors: yes
     - name: "setup email relay auth"
-      command: "{{base_path}}/setup.sh relay add-auth {{domain}} {{relay_username}} {{relay_key}}"
+      command: "sh setup.sh relay add-auth {{domain}} {{relay_username}} {{relay_key}}"
+      args:
+        chdir: "{{base_path}}/"
       ignore_errors: yes

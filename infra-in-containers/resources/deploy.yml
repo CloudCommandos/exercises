@@ -5,8 +5,12 @@
     base_path: /root/dockerproj/docker-mailserver
   vars_prompt:
     - name: "domain"
-      prompt: "What is your domain name? (e.g. example.com)"
+      prompt: "What is your domain name?"
       default: "commandocloudlet.com"
+      private: no
+    - name: "emailurl"
+      prompt: "What is your email client url?"
+      default: "http://mail.commandocloudlet.com"
       private: no
     - name: "email_username"
       prompt: "We will be creating one email account. Please enter the login account id (e.g. user@example.com)"
@@ -104,6 +108,12 @@
              "Organizational Unit Name" : ""
              "Common Name" : ""
              "Email Address" : ""
+    - name: Ensure {{base_path}}/entry exists
+      file: path={{base_path}}/entry state=directory
+    - name: "create Caddy file"
+      copy: 
+        content: "{{emailurl}} { proxy / rainloop:8888 { transparent } }"
+        dest: "{{base_path}}/entry/Caddyfile"
     - name: "setup first email account"
       shell: "./setup.sh email add {{email_username}} {{email_password}}"
       args:
@@ -120,7 +130,7 @@
         chdir: "{{base_path}}/"
       ignore_errors: yes
 
-    - name: "restart docker containers"
+    - name: "start docker containers"
       command: docker-compose up -d
       args:
         chdir: "{{base_path}}/"

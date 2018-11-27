@@ -32,7 +32,7 @@
       prompt: "What is your email relay password?"
       default: "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"
       private: no
-      
+
   tasks:
     - name: Ensure {{base_path}} exists
       file: path={{base_path}} state=directory
@@ -54,13 +54,56 @@
         dest: "{{base_path}}/setup.sh"
         mode: 0777
         force: yes
-        
+
     - name: "edit domain name in .env"
       lineinfile:
         dest: "{{base_path}}/.env"
         regexp: '^DOMAINNAME='
         line: 'DOMAINNAME={{domain}}'
-    
+    - name: install dependencies
+      apt:
+        name:
+            - apt-transport-https
+            - ca-certificates
+            - curl
+            - gnupg2
+            - software-properties-common
+            - python-pip
+            - python-apt
+            - openssl
+        state: present
+    - name: install pexpect
+      pip:
+        name: pexpect
+    - name: adding apt-key for docker
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+    - name: adding docker repo list
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian stretch stable
+        state: present
+    - name: install docker-ce and docker-compose
+      apt:
+        name:
+            - docker-compose
+            - docker-ce
+        state: present
+    - name: create directory
+      file:
+        path: /root/dockerproj/docker-mailserver/ssl
+        state: directory
+    - name: generate a self signed OpenSSL certificate
+      expect:
+        command: openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out /root/dockerproj/docker-mailserver/ssl/ssl.crt -keyout /root/dockerproj/docker-mailserver/ssl/ssl.key
+        responses:
+             "Country Name" : ""
+             "State or Province Name" : ""
+             "Locality Name" : ""
+             "Organization Name" : ""
+             "Organizational Unit Name" : ""
+             "Common Name" : ""
+             "Email Address" : ""
     - name: "setup first email account"
       shell: "setup.sh email add {{email_username}} {{email_password}}"
       args:

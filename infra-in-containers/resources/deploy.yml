@@ -30,7 +30,7 @@
       private: no
     - name: "relay_key"
       prompt: "What is your email relay password?"
-      default: "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"
+      default: "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"
       private: no
       
   tasks:

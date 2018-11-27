@@ -1,8 +1,8 @@
 ---
-- hosts: localhost
+- hosts: all
   remote_user: root
   vars:
-    base_path: ~/dockerproj/docker-mailserver
+    base_path: /root/dockerproj/docker-mailserver
   vars_prompt:
     - name: "domain"
       prompt: "What is your domain name? (e.g. example.com)"

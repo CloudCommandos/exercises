@@ -234,6 +234,10 @@ case $1 in
         ;;
       add-auth)
         shift
+        _docker_image addsaslpassword $@
+        ;;
+      exclude-domain)
+        shift
         _docker_image excluderelaydomain $@
         ;;
       *)
@@ -260,7 +264,7 @@ case $1 in
         ;;
       login)
         shift
-        if [ -z "$1" ]; then
+	if [ -z "$1" ]; then
           _docker_container /bin/bash
         else
           _docker_container /bin/bash -c "$@"

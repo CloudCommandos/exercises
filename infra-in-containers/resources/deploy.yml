@@ -112,7 +112,7 @@
       file: path={{base_path}}/entry state=directory
     - name: "create Caddy file"
       copy: 
-        content: "{{emailurl}} { proxy / rainloop:8888 { transparent } }"
+        content: "{{emailurl}} { {{'\n'}}proxy / rainloop:8888 { {{'\n'}}transparent {{'\n'}} } {{'\n'}} }"
         dest: "{{base_path}}/entry/Caddyfile"
     - name: "setup first email account"
       shell: "./setup.sh email add {{email_username}} {{email_password}}"

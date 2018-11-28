@@ -131,6 +131,5 @@
       ignore_errors: yes
 
     - name: "start docker containers"
-      command: docker-compose up -d
-      args:
-        chdir: "{{base_path}}/"
+      docker_service:
+        project_src: "{{base_path}}"

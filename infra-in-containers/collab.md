@@ -427,12 +427,245 @@ docker-compose restart
 
 Log on to [sendgrid](https://sendgrid.com/) and navigate to Sender Authentication tab under settings to authenticate your domain and also brand your links. Copy the information over to Godaddy (or your domain registrar of choice) and you should be able to send emails with your own domain branding.   
 
-## Automate with Ansible
+## Automate email server deployment with Ansible
+Using Ansible, you can automate the deployment of the email server on a target server from a remote server.
 
+On your remote server:  
+Install Ansible
+```bash
+sudo apt-get install ansible
+```
 
-## Current Status
-Login into Rainloop web client is successful.  
-Sending and receiving of emails are successful.
+On your target server:  
+Enable password login
+```bash
+nano /etc/ssh/sshd_config
+
+PermitRootLogin yes
+PasswordAuthentication yes
+```
+
+On your remote server:  
+Generate ssh key pair and transfer the public key to the target server
+```bash
+ssh-keygen
+ssh-copy-id <<target_server_ip>>
+```
+
+On your target server:  
+Disable password authentication and enable public key authentication
+```bash
+nano /etc/ssh/sshd_config
+
+PasswordAuthentication no
+PubkeyAuthentication yes
+```
+
+On your remote server: 
+Create an Ansible script file and fill in with the following contents
+```bash
+nano ~/deploy.yml
+
+---
+- hosts: all
+  remote_user: root
+  vars:
+    base_path: /root/dockerproj/docker-mailserver
+  vars_prompt:
+    - name: "domain"
+      prompt: "What is your domain name?"
+      private: no
+    - name: "emailurl"
+      prompt: "What is your email client url?"
+      private: no
+    - name: "email_username"
+      prompt: "We will be creating one email account. Please enter the login account id (e.g. user@example.com)"
+      private: no
+    - name: "email_password"
+      prompt: "account password"
+      private: yes
+      confirm: yes
+    - name: "relay_host"
+      prompt: "What is your email relay host?"
+      private: no
+    - name: "relay_port"
+      prompt: "What is your email relay port?"
+      private: no
+    - name: "relay_username"
+      prompt: "What is your email relay username?"
+      private: no
+    - name: "relay_key"
+      prompt: "What is your email relay password?"
+      private: no
+
+  tasks:
+    - name: Ensure {{base_path}} exists
+      file: path={{base_path}} state=directory
+    - name: "download docker-compose.yml"
+      get_url:
+        url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/docker-compose.yml
+        dest: "{{base_path}}/docker-compose.yml"
+        mode: 0777
+        force: yes
+    - name: "download .env"
+      get_url:
+        url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/env.txt
+        dest: "{{base_path}}/.env"
+        mode: 0777
+        force: yes
+    - name: "download setup.sh"
+      get_url:
+        url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/setup.sh
+        dest: "{{base_path}}/setup.sh"
+        mode: 0777
+        force: yes
+
+    - name: "edit domain name in .env"
+      lineinfile:
+        dest: "{{base_path}}/.env"
+        regexp: '^DOMAINNAME='
+        line: 'DOMAINNAME={{domain}}'
+    - name: install dependencies
+      apt:
+        name:
+            - apt-transport-https
+            - ca-certificates
+            - curl
+            - gnupg2
+            - software-properties-common
+            - python-pip
+            - python-apt
+            - openssl
+        state: present
+    - name: install pexpect
+      pip:
+        name: pexpect
+    - name: adding apt-key for docker
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+    - name: adding docker repo list
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian stretch stable
+        state: present
+    - name: install docker-ce and docker-compose
+      apt:
+        name:
+            - docker-compose
+            - docker-ce
+        state: present
+    - name: create directory
+      file:
+        path: "{{base_path}}/ssl"
+        state: directory
+    - name: generate a self signed OpenSSL certificate
+      expect:
+        command: openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out {{base_path}}/ssl/ssl.crt -keyout {{base_path}}/ssl/ssl.key
+        responses:
+             "Country Name" : ""
+             "State or Province Name" : ""
+             "Locality Name" : ""
+             "Organization Name" : ""
+             "Organizational Unit Name" : ""
+             "Common Name" : ""
+             "Email Address" : ""
+    - name: Ensure {{base_path}}/entry exists
+      file: path={{base_path}}/entry state=directory
+    - name: "create Caddy file"
+      copy: 
+        content: "{{emailurl}} { {{'\n'}}proxy / rainloop:8888 { {{'\n'}}transparent {{'\n'}} } {{'\n'}} }"
+        dest: "{{base_path}}/entry/Caddyfile"
+    - name: "setup first email account"
+      shell: "./setup.sh email add {{email_username}} {{email_password}}"
+      args:
+        chdir: "{{base_path}}/"
+      ignore_errors: yes
+    - name: "setup email relay domain"
+      shell: "./setup.sh relay add-domain {{domain}} {{relay_host}} {{relay_port}}"
+      args:
+        chdir: "{{base_path}}/"
+      ignore_errors: yes
+    - name: "setup email relay auth"
+      shell: "./setup.sh relay add-auth {{domain}} {{relay_username}} {{relay_key}}"
+      args:
+        chdir: "{{base_path}}/"
+      ignore_errors: yes
+
+    - name: "start docker containers"
+      docker_service:
+        project_src: "{{base_path}}"
+```
+
+Run the script
+```bash
+ansible-playbook -i <<target_server_ip>>, ~/deploy.yml
+```
+
+You should see the following prompts
+```bash
+PLAY [all] *********************************************************************
+
+TASK [setup] *******************************************************************
+ok: [target_server_ip]
+
+TASK [Ensure /root/dockerproj/docker-mailserver exists] ************************
+changed: [target_server_ip]
+
+TASK [download docker-compose.yml] *********************************************
+changed: [target_server_ip]
+
+TASK [download .env] ***********************************************************
+changed: [target_server_ip]
+
+TASK [download setup.sh] *******************************************************
+changed: [target_server_ip]
+
+TASK [edit domain name in .env] ************************************************
+ok: [target_server_ip]
+
+TASK [install dependencies] ****************************************************
+changed: [target_server_ip]
+
+TASK [install pexpect] *********************************************************
+changed: [target_server_ip]
+
+TASK [adding apt-key for docker] ***********************************************
+changed: [target_server_ip]
+
+TASK [adding docker repo list] *************************************************
+changed: [target_server_ip]
+
+TASK [install docker-ce and docker-compose] ************************************
+changed: [target_server_ip]
+
+TASK [create directory] ********************************************************
+changed: [target_server_ip]
+
+TASK [generate a self signed OpenSSL certificate] ******************************
+changed: [target_server_ip]
+
+TASK [Ensure /root/dockerproj/docker-mailserver/entry exists] ******************
+changed: [target_server_ip]
+
+TASK [create Caddy file] *******************************************************
+changed: [target_server_ip]
+
+TASK [setup first email account] ***********************************************
+changed: [target_server_ip]
+
+TASK [setup email relay domain] ************************************************
+changed: [target_server_ip]
+
+TASK [setup email relay auth] **************************************************
+changed: [target_server_ip]
+
+TASK [start docker containers] *************************************************
+changed: [target_server_ip]
+
+PLAY RECAP *********************************************************************
+target_server_ip              : ok=19   changed=17   unreachable=0    failed=0
+```
+
 
 Useful Links:  
 [How to Install and Use Docker on Debian 9](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-debian-9)  

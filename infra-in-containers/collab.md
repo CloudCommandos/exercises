@@ -343,7 +343,7 @@ volumes:
     driver: local
 ```
 
-Create Caddy's configuration Caddyfile
+Create Caddy's configuration file
 ```bash
 vim ~/dockerproj/docker-mailserver/entry/Caddyfile
 

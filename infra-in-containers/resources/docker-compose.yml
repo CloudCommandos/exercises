@@ -3,12 +3,12 @@ services:
   rainloop:
     container_name: rainloop
     image: hardware/rainloop
-    links:
-    - mail
+    restart: always
     volumes:
     - rainloop_data:/rainloop/data
   mail:
     image: tvial/docker-mailserver:latest
+    restart: always
     hostname: ${HOSTNAME}
     domainname: ${DOMAINNAME}
     container_name: ${CONTAINER_NAME}
@@ -96,15 +96,12 @@ services:
     cap_add:
     - NET_ADMIN
     - SYS_PTRACE
-    restart: always
 
   entry:
     container_name: entry
     image: abiosoft/caddy:0.10.4
     restart: always
     privileged: true
-    links:
-      - rainloop
     ports:
       - "80:80"
       - "443:443"

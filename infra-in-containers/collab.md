@@ -392,7 +392,7 @@ PasswordAuthentication no
 PubkeyAuthentication yes
 ```
 
-On your remote server: 
+On your remote server:
 Create an Ansible script file and fill in with the following contents
 ```bash
 nano ~/deploy.yml
@@ -503,7 +503,7 @@ nano ~/deploy.yml
     - name: Ensure {{base_path}}/entry exists
       file: path={{base_path}}/entry state=directory
     - name: "create Caddy file"
-      copy: 
+      copy:
         content: "{{emailurl}} { {{'\n'}}proxy / rainloop:8888 { {{'\n'}}transparent {{'\n'}} } {{'\n'}} }"
         dest: "{{base_path}}/entry/Caddyfile"
     - name: "setup first email account"
@@ -597,6 +597,45 @@ PLAY RECAP *********************************************************************
 target_server_ip              : ok=19   changed=17   unreachable=0    failed=0
 ```
 
+## Additional email server administrative scripts   
+### Adding of email accounts   
+On your remote server:  
+Create an Ansible script file for the adding of email accounts by filling it with the following contents
+```bash
+---
+- hosts: all
+  remote_user: root
+  vars:
+    base_path: /root/dockerproj/docker-mailserver
+
+  vars_prompt:
+    - name: "email_username"
+      prompt: "We will be creating one email account. Please enter the login account id (e.g user@example.com)"
+      private: no
+    - name: "email_password"
+      prompt: "account password"
+      private: yes
+      encrypt: "sha512_crypt"
+      confirm: yes
+
+  tasks:
+    - name: "Ensure Config file exists"
+      file: path={{base_path}}/config state=directory
+
+    - name: "Check if email user exist"
+      shell: cat {{base_path}}/config/postfix-accounts.cf
+      register: useraccounts
+
+    - name: "Reject username"
+      when: useraccounts.stdout.find(email_username) != -1
+      debug: msg="Login ID({{email_username}}) already exists. Please choose another username!!!"
+
+    - name: "Create email account"
+      when: useraccounts.stdout.find(email_username) == -1
+      lineinfile:
+        path: "{{base_path}}/config/postfix-accounts.cf"
+        line: "{{email_username}}|{SHA512-CRYPT}{{email_password}}"
+```
 
 Useful Links:  
 [How to Install and Use Docker on Debian 9](https://www.digitalocean.com/community/tutorials/how-to-install-and-use-docker-on-debian-9)  

@@ -1,0 +1,135 @@
+---
+- hosts: all
+  remote_user: root
+  vars:
+    base_path: /root/dockerproj/docker-mailserver
+  vars_prompt:
+    - name: "domain"
+      prompt: "What is your domain name?"
+      default: "commandocloudlet.com"
+      private: no
+    - name: "emailurl"
+      prompt: "What is your email client url?"
+      default: "http://mail.commandocloudlet.com"
+      private: no
+    - name: "email_username"
+      prompt: "We will be creating one email account. Please enter the login account id (e.g. user@example.com)"
+      default: "jiunnyuan@commandocloudlet.com"
+      private: no
+    - name: "email_password"
+      prompt: "account password"
+      private: yes
+      confirm: yes
+    - name: "relay_host"
+      prompt: "What is your email relay host?"
+      default: "smtp.sendgrid.net"
+      private: no
+    - name: "relay_port"
+      prompt: "What is your email relay port?"
+      default: "587"
+      private: no
+    - name: "relay_username"
+      prompt: "What is your email relay username?"
+      default: "apikey"
+      private: no
+    - name: "relay_key"
+      prompt: "What is your email relay password?"
+      default: "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"
+      private: no
+
+  tasks:
+    - name: Ensure {{base_path}} exists
+      file: path={{base_path}} state=directory
+    - name: "download docker-compose.yml"
+      get_url:
+        url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/docker-compose.yml
+        dest: "{{base_path}}/docker-compose.yml"
+        mode: 0777
+        force: yes
+    - name: "download .env"
+      get_url:
+        url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/env.txt
+        dest: "{{base_path}}/.env"
+        mode: 0777
+        force: yes
+    - name: "download setup.sh"
+      get_url:
+        url: https://raw.githubusercontent.com/CloudCommandos/missions/CC/infra-in-containers/resources/setup.sh
+        dest: "{{base_path}}/setup.sh"
+        mode: 0777
+        force: yes
+
+    - name: "edit domain name in .env"
+      lineinfile:
+        dest: "{{base_path}}/.env"
+        regexp: '^DOMAINNAME='
+        line: 'DOMAINNAME={{domain}}'
+    - name: install dependencies
+      apt:
+        name:
+            - apt-transport-https
+            - ca-certificates
+            - curl
+            - gnupg2
+            - software-properties-common
+            - python-pip
+            - python-apt
+            - openssl
+        state: present
+    - name: install pexpect
+      pip:
+        name: pexpect
+    - name: adding apt-key for docker
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+    - name: adding docker repo list
+      apt_repository:
+        repo: deb [arch=amd64] https://download.docker.com/linux/debian stretch stable
+        state: present
+    - name: install docker-ce and docker-compose
+      apt:
+        name:
+            - docker-compose
+            - docker-ce
+        state: present
+    - name: create directory
+      file:
+        path: "{{base_path}}/ssl"
+        state: directory
+    - name: generate a self signed OpenSSL certificate
+      expect:
+        command: openssl req -new -newkey rsa:4096 -x509 -sha256 -days 365 -nodes -out {{base_path}}/ssl/ssl.crt -keyout {{base_path}}/ssl/ssl.key
+        responses:
+             "Country Name" : ""
+             "State or Province Name" : ""
+             "Locality Name" : ""
+             "Organization Name" : ""
+             "Organizational Unit Name" : ""
+             "Common Name" : ""
+             "Email Address" : ""
+    - name: Ensure {{base_path}}/entry exists
+      file: path={{base_path}}/entry state=directory
+    - name: "create Caddy file"
+      copy: 
+        content: "{{emailurl}} { {{'\n'}}proxy / rainloop:8888 { {{'\n'}}transparent {{'\n'}} } {{'\n'}} }"
+        dest: "{{base_path}}/entry/Caddyfile"
+    - name: "setup first email account"
+      shell: "./setup.sh email add {{email_username}} {{email_password}}"
+      args:
+        chdir: "{{base_path}}/"
+      ignore_errors: yes
+    - name: "setup email relay domain"
+      shell: "./setup.sh relay add-domain {{domain}} {{relay_host}} {{relay_port}}"
+      args:
+        chdir: "{{base_path}}/"
+      ignore_errors: yes
+    - name: "setup email relay auth"
+      shell: "./setup.sh relay add-auth {{domain}} {{relay_username}} {{relay_key}}"
+      args:
+        chdir: "{{base_path}}/"
+      ignore_errors: yes
+
+    - name: "start docker containers"
+      docker_service:
+        project_src: "{{base_path}}"

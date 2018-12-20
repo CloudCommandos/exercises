@@ -120,6 +120,10 @@ By default, the tokens expire after 24 hours. If the token expired, use the foll
 ```bash
 kubeadm token create --print-join-command
 ```
+To get the ca-cert, run the following command on the master node:
+```bash
+openssl x509 -pubkey -in /etc/kubernetes/pki/ca.crt | openssl rsa -pubin -outform der 2>/dev/null | openssl dgst -sha256 -hex | sed 's/^.* //'
+```   
 For non-root user to run kubectl, enter the following commands:
 ```bash
 mkdir -p $HOME/.kube
@@ -180,11 +184,6 @@ ceph-deploy osd create ceph-node-3:/dev/sdb
 ```
 
 ## Deploy WordPress and MariaDB on Separate Pods
-When using root user to run kubectl commands
-```bash
-export KUBECONFIG=/etc/kubernetes/admin.conf
-```  
-
 Store your MariabDB and WordPress passwords
 ```bash
 kubectl create secret generic mariadb-pass --from-literal=password=YOUR_PASSWORD

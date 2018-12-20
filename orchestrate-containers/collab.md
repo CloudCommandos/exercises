@@ -99,3 +99,40 @@ Some of the minimum requirement to take note for installing Kubernetes:
 1. Swap must be disabled
 
 To disable swap. Enter `swapoff -a` and this will disable swap but this is not persistent. Thus, to disable swap persistently, edit `/etc/fstab` and remove or comment out the line on swap.
+
+Choose a pod network add-on before initialising the master node. The pod network is required for the pods to communicate with each other. A list of pod network is available [here](https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/)
+
+For this installation, Flannel will be used as the pod network. Thus, the command to initialise is
+```bash
+kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=masteripaddresstocluster
+```
+The argument `--pod-network-cidr=10.244.0.0/16` is for Flannel setup.
+
+`--apiserver-advertise-address=` is to be set with the master node IP adddress that has connection with the rest of the nodes in the cluster.
+
+For Flannel, enter `sysctl net.bridge.bridge-nf-call-iptables=1` to pass bridged IPv4 traffic to  iptables chain.
+
+After the initialisation is completed, remember to take down the command to add nodes to the master. The command should be display on the last line once the initialisation is completed. Example of the command with the token and cert:
+```bash
+kubeadm join 192.168.1.2:6443 --token 5dbj06.mbyb1suo8epe841a --discovery-token-ca-cert-hash sha256:0eb04182eea1061a0bd10a024b261e9eabd8e58e57bb99837938cd0c39138721
+```
+By default, the tokens expire after 24 hours. If the token expired, use the following command to create another token and print the join command:
+```bash
+kubeadm token create --print-join-command
+```
+For non-root user to run kubectl, enter the following commands:
+```bash
+mkdir -p $HOME/.kube
+sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+sudo chown $(id -u):$(id -g) $HOME/.kube/config
+```
+For root user, enter the following command:
+```bash
+export KUBECONFIG=/etc/kubernetes/admin.conf
+```
+The above command can also resolve if error `The connection to the server localhost:8080 was refused - did you specify the right host or port?` is encountered.
+
+Lastly, to finish up the configuration of the master node, we need to add the network driver. The driver should be selected during the `kubeadm init`. For this setup, Flannel is used and the command to add Flannel is:
+```bash
+kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/bc79dd1505b0c8681ece4de4c0d86c5cd2643275/Documentation/kube-flannel.yml
+```

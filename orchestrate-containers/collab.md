@@ -136,3 +136,232 @@ Lastly, to finish up the configuration of the master node, we need to add the ne
 ```bash
 kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/bc79dd1505b0c8681ece4de4c0d86c5cd2643275/Documentation/kube-flannel.yml
 ```
+
+---
+# Kubernetes Workload - WordPress and MariaDB
+## Set up Ceph Cluster
+You'll need at least 3 OSDs for Ceph to report a healthy status.  
+Make sure that all your nodes can be accessed via ssh from the admin-node.  
+
+On your Ceph Admin Node:  
+Install Ceph-Deploy. Change 'jewel' to your Ceph release.
+```bash
+wget -q -O- 'https://download.ceph.com/keys/release.asc' | sudo apt-key add -
+echo deb https://download.ceph.com/debian-jewel/ $(lsb_release -sc) main | sudo tee /etc/apt/sources.list.d/ceph.list
+sudo apt update
+sudo apt install ceph-deploy
+```
+Create Ceph-Cluster directory
+```bash
+mkdir my-ceph
+cd my-ceph
+```
+Create the Ceph cluster
+```bash
+ceph-deploy new admin-node
+```
+Install Ceph packages on your Ceph cluster nodes
+```bash
+ceph-deploy install admin-node ceph-node-2 ceph-node-3
+```
+Deploy initial monitors and create Ceph keys
+```bash
+ceph-deploy mon create-initial
+```
+Copy configuration files and keys to the nodes
+```bash
+ceph-deploy admin admin-node ceph-node-2 ceph-node-3
+```
+Create OSDs
+```bash
+ceph-deploy osd create admin-node:/dev/sdb
+ceph-deploy osd create ceph-node-2:/dev/sdb
+ceph-deploy osd create ceph-node-3:/dev/sdb
+```
+
+## Deploy WordPress and MariaDB on Separate Pods
+When using root user to run kubectl commands
+```bash
+export KUBECONFIG=/etc/kubernetes/admin.conf
+```  
+
+Store your MariabDB and WordPress passwords
+```bash
+kubectl create secret generic mariadb-pass --from-literal=password=YOUR_PASSWORD
+kubectl create secret generic wordpress-pass --from-literal=password=YOUR_PASSWORD
+```  
+
+Create MariaDB Deployment File
+```bash
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-mariadb
+  labels:
+    app: wordpress
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: wordpress
+    tier: mariadb
+  clusterIP: None
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: mariadb-volume
+  labels:
+    type: local
+spec:
+  storageClassName: mariadb
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/mnt/data/mariadb"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mariadb-pv-claim
+  labels:
+    app: wordpress
+spec:
+  storageClassName: mariadb
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress-mariadb
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: mariadb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: mariadb
+    spec:
+      containers:
+      - image: mariadb:latest
+        name: mariadb
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-pass
+              key: password
+        ports:
+        - containerPort: 3306
+          name: mariadb
+        volumeMounts:
+        - name: mariadb-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mariadb-persistent-storage
+        persistentVolumeClaim:
+          claimName: mariadb-pv-claim
+```  
+
+Create WordPress Deployment File
+```bash
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress
+  labels:
+    app: wordpress
+spec:
+  ports:
+    - port: 80
+      nodePort: 32607
+  selector:
+    app: wordpress
+    tier: frontend
+  type: NodePort
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: wordpress-volume
+  labels:
+    type: local
+spec:
+  storageClassName: wordpress
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: "/mnt/data/wordpress"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: wp-pv-claim
+  labels:
+    app: wordpress
+spec:
+  storageClassName: wordpress
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpress
+  labels:
+    app: wordpress
+spec:
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: frontend
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: frontend
+    spec:
+      containers:
+      - image: wordpress:4.8-apache
+        name: wordpress
+        env:
+        - name: WORDPRESS_DB_HOST
+          value: wordpress-mariadb
+        - name: WORDPRESS_DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: wordpress-pass
+              key: password
+        ports:
+        - containerPort: 80
+          name: wordpress
+        volumeMounts:
+        - name: wordpress-persistent-storage
+          mountPath: /var/www/html
+      volumes:
+      - name: wordpress-persistent-storage
+        persistentVolumeClaim:
+          claimName: wp-pv-claim
+```  

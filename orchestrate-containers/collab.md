@@ -144,8 +144,8 @@ kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/bc79dd1505b0c8
 ---
 # Kubernetes Workload - WordPress and MariaDB
 ## Set up Ceph Cluster
-You'll need at least 3 OSDs for Ceph to report a healthy status.  
-Make sure that all your nodes can be accessed via ssh from the admin-node.  
+A persistent volume of type "local" is active on one worker node at a time, therefore data synchronization across pods on different nodes or during node migration is not possible without the use of 3rd party storage syncing solutions.
+There are many available options but for this task we will use Ceph. You'll need at least 3 OSDs for Ceph to report a healthy status. Make sure that all your nodes can be accessed via ssh from the admin-node.  
 
 On your Ceph Admin Node:  
 Install Ceph-Deploy. Change 'jewel' to your Ceph release.
@@ -163,6 +163,12 @@ cd my-ceph
 Create the Ceph cluster
 ```bash
 ceph-deploy new admin-node
+```
+Edit ceph.conf file and add in the ceph network
+```bash
+vim ceph.conf
+
+public network = 10.142.10.0/24
 ```
 Install Ceph packages on your Ceph cluster nodes
 ```bash
@@ -182,15 +188,64 @@ ceph-deploy osd create admin-node:/dev/sdb
 ceph-deploy osd create ceph-node-2:/dev/sdb
 ceph-deploy osd create ceph-node-3:/dev/sdb
 ```
+Create Meta-data server for CephFS
+```bash
+ceph-deploy mds create admin-node
+```
+Add Monitors
+```bash
+ceph-deploy mon add ceph-node-2
+ceph-deploy mon add ceph-node-3
+```
+Check the Ceph Cluster
+```bash
+ceph quorum_status --format json-pretty
+```
 
-## Deploy WordPress and MariaDB on Separate Pods
+## Create CephFS
+Create two storage pools
+```bash
+ceph osd pool create cephfs_data 128
+ceph osd pool create cephfs_metadata 128
+```
+Create CephFS using the two pools
+```bash
+ceph fs new cephfs cephfs_metadata cephfs_data
+```
+Check that CephFS is up
+```bash
+ceph mds stat
+
+#e10: 1/1/1 up {0=admin-node=up:active}
+```
+
+Obtain the ceph admin key from the admin-node. Copy only the key.
+```bash
+ceph auth get client.admin
+```
+When using root user to run kubectl commands
+```bash
+export KUBECONFIG=/etc/kubernetes/admin.conf
+```  
+Store your CephFS password
+```bash
+kubectl create secret generic cephfs-pass --from-literal=key=YOUR_KEY
+```  
+
+## Deploy WordPress and MariaDB in Separate Pods
+Work in a new directory
+```bash
+mkdir ~/kubeproj
+cd ~/kubeproj
+```
+
 Store your MariabDB and WordPress passwords
 ```bash
 kubectl create secret generic mariadb-pass --from-literal=password=YOUR_PASSWORD
 kubectl create secret generic wordpress-pass --from-literal=password=YOUR_PASSWORD
 ```  
 
-Create MariaDB Deployment File
+Create MariaDB Deployment File deployMariaDB.yml
 ```bash
 apiVersion: v1
 kind: Service
@@ -206,37 +261,7 @@ spec:
     tier: mariadb
   clusterIP: None
 ---
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: mariadb-volume
-  labels:
-    type: local
-spec:
-  storageClassName: mariadb
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  hostPath:
-    path: "/mnt/data/mariadb"
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: mariadb-pv-claim
-  labels:
-    app: wordpress
-spec:
-  storageClassName: mariadb
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi
----
-apiVersion: apps/v1
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
 kind: Deployment
 metadata:
   name: wordpress-mariadb
@@ -272,11 +297,19 @@ spec:
           mountPath: /var/lib/mysql
       volumes:
       - name: mariadb-persistent-storage
-        persistentVolumeClaim:
-          claimName: mariadb-pv-claim
+        cephfs:
+          monitors:
+            - 10.142.10.1:6789
+            - 10.142.10.2:6789
+            - 10.142.10.3:6789
+          user: admin
+          secretRef:
+            name: cephfs-pass
+          readOnly: false
+          path: "/"
 ```  
 
-Create WordPress Deployment File
+Create WordPress Deployment File deployWordPress.yml
 ```bash
 apiVersion: v1
 kind: Service
@@ -287,41 +320,11 @@ metadata:
 spec:
   ports:
     - port: 80
-      nodePort: 32607
+      nodePort: 32607 #you can choose any port between 30000 - 32767
   selector:
     app: wordpress
     tier: frontend
   type: NodePort
----
-apiVersion: v1
-kind: PersistentVolume
-metadata:
-  name: wordpress-volume
-  labels:
-    type: local
-spec:
-  storageClassName: wordpress
-  capacity:
-    storage: 10Gi
-  accessModes:
-    - ReadWriteOnce
-  persistentVolumeReclaimPolicy: Retain
-  hostPath:
-    path: "/mnt/data/wordpress"
----
-apiVersion: v1
-kind: PersistentVolumeClaim
-metadata:
-  name: wp-pv-claim
-  labels:
-    app: wordpress
-spec:
-  storageClassName: wordpress
-  accessModes:
-    - ReadWriteOnce
-  resources:
-    requests:
-      storage: 10Gi
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -361,6 +364,28 @@ spec:
           mountPath: /var/www/html
       volumes:
       - name: wordpress-persistent-storage
-        persistentVolumeClaim:
-          claimName: wp-pv-claim
+        cephfs:
+          monitors:
+          - 10.142.10.1:6789
+          - 10.142.10.2:6789
+          - 10.142.10.3:6789
+          user: admin
+          secretRef:
+            name: cephfs-pass
+          readOnly: false
+          path: "/"
 ```  
+
+Reboot all your nodes
+```bash
+sudo reboot
+```
+
+Deploy MariaDB and WordPress
+```bash
+cd ~/kubeproj
+kubectl create -f deployMariaDB.yml
+kubectl create -f deployWordPress.yml
+```
+
+You can now access your WordPress website via your domain/public IP with specified port 32607 (or the node port of your choice) http://yourdomain:32607.

@@ -182,7 +182,7 @@ Copy configuration files and keys to the nodes
 ```bash
 ceph-deploy admin admin-node ceph-node-2 ceph-node-3
 ```
-Create OSDs
+Create OSDs. Make sure that the disks are at least 6GB.
 ```bash
 ceph-deploy osd create admin-node:/dev/sdb
 ceph-deploy osd create ceph-node-2:/dev/sdb

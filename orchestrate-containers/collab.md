@@ -232,20 +232,339 @@ Store your CephFS password
 kubectl create secret generic cephfs-pass --from-literal=key=YOUR_KEY
 ```  
 
-## Deploy WordPress and MariaDB in Separate Pods
+## Deploy Ingress for port 80 and 443 traffic handling
 Work in a new directory
 ```bash
 mkdir ~/kubeproj
 cd ~/kubeproj
 ```
+Create Ingress deployment file `deployIngress.yml`
+```bash
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: name-virtual-host-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: subdomain1.commandocloudlet.com
+    http:
+      paths:
+      - path: /*
+        backend:
+          serviceName: wordpress
+          servicePort: 80
+```
+We will create a Node Port listening on port 80/443 for our Ingress Controller. The default Node Port range is set to 30000-32767. Edit the `kube-apiserver.yaml` configuration file and overwrite the default range.
+```bash
+nano /etc/kubernetes/manifests/kube-apiserver.yaml
 
+#add into spec -> containers -> command section
+- --service-node-port-range=80-32767
+```
+
+Create Nginx Ingress Controller deployment file `deployIngressController.yml`. Nginx Ingress Controller routes traffic from port 80/443 to the defined service endpoints specified by Ingress.
+```bash
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ingress-nginx
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  type: NodePort
+  ports:
+    - name: http
+      port: 80
+      nodePort: 80
+      targetPort: 80
+      protocol: TCP
+    - name: https
+      port: 443
+      nodePort: 443
+      targetPort: 443
+      protocol: TCP
+  selector:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+---
+
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: nginx-configuration
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: tcp-services
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+---
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: udp-services
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: nginx-ingress-serviceaccount
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: nginx-ingress-clusterrole
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - endpoints
+      - nodes
+      - pods
+      - secrets
+    verbs:
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - nodes
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - "extensions"
+    resources:
+      - ingresses
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
+  - apiGroups:
+      - "extensions"
+    resources:
+      - ingresses/status
+    verbs:
+      - update
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: nginx-ingress-role
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+      - pods
+      - secrets
+      - namespaces
+    verbs:
+      - get
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      # Defaults to "<election-id>-<ingress-class>"
+      # Here: "<ingress-controller-leader>-<nginx>"
+      # This has to be adapted if you change either parameter
+      # when launching the nginx-ingress-controller.
+      - "ingress-controller-leader-nginx"
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - endpoints
+    verbs:
+      - get
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: nginx-ingress-role-nisa-binding
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: nginx-ingress-role
+subjects:
+  - kind: ServiceAccount
+    name: nginx-ingress-serviceaccount
+    namespace: ingress-nginx
+
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: nginx-ingress-clusterrole-nisa-binding
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: nginx-ingress-clusterrole
+subjects:
+  - kind: ServiceAccount
+    name: nginx-ingress-serviceaccount
+    namespace: ingress-nginx
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-ingress-controller
+  namespace: ingress-nginx
+  labels:
+    app.kubernetes.io/name: ingress-nginx
+    app.kubernetes.io/part-of: ingress-nginx
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ingress-nginx
+      app.kubernetes.io/part-of: ingress-nginx
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ingress-nginx
+        app.kubernetes.io/part-of: ingress-nginx
+      annotations:
+        prometheus.io/port: "10254"
+        prometheus.io/scrape: "true"
+    spec:
+      serviceAccountName: nginx-ingress-serviceaccount
+      containers:
+        - name: nginx-ingress-controller
+          image: quay.io/kubernetes-ingress-controller/nginx-ingress-controller:0.21.0
+          args:
+            - /nginx-ingress-controller
+            - --configmap=$(POD_NAMESPACE)/nginx-configuration
+            - --tcp-services-configmap=$(POD_NAMESPACE)/tcp-services
+            - --udp-services-configmap=$(POD_NAMESPACE)/udp-services
+            - --publish-service=$(POD_NAMESPACE)/ingress-nginx
+            - --annotations-prefix=nginx.ingress.kubernetes.io
+          securityContext:
+            allowPrivilegeEscalation: true
+            capabilities:
+              drop:
+                - ALL
+              add:
+                - NET_BIND_SERVICE
+            # www-data -> 33
+            runAsUser: 33
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          ports:
+            - name: http
+              containerPort: 80
+            - name: https
+              containerPort: 443
+          livenessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /healthz
+              port: 10254
+              scheme: HTTP
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 1
+---
+```
+
+
+## Deploy WordPress and MariaDB in Separate Pods
 Store your MariabDB and WordPress passwords
 ```bash
 kubectl create secret generic mariadb-pass --from-literal=password=YOUR_PASSWORD
 kubectl create secret generic wordpress-pass --from-literal=password=YOUR_PASSWORD
 ```  
 
-Create MariaDB Deployment File deployMariaDB.yml
+Create MariaDB Deployment File `deployMariaDB.yml`
 ```bash
 apiVersion: v1
 kind: Service
@@ -261,6 +580,38 @@ spec:
     tier: mariadb
   clusterIP: None
 ---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wordpress-mariadb-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: wordpress
+      tier: mariadb
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 10.244.0.0/16
+    - podSelector:
+        matchLabels:
+          app: wordpress
+          tier: frontend
+    ports:
+    - protocol: TCP
+      port: 3306
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 10.244.0.0/16
+    ports:
+    - protocol: TCP
+      port: 3306
+---
 apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
 kind: Deployment
 metadata:
@@ -268,6 +619,7 @@ metadata:
   labels:
     app: wordpress
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: wordpress
@@ -305,11 +657,12 @@ spec:
           user: admin
           secretRef:
             name: cephfs-pass
+          #secretFile: "/etc/ceph/user.secret"
           readOnly: false
           path: "/"
 ```  
 
-Create WordPress Deployment File deployWordPress.yml
+Create WordPress Deployment File `deployWordPress.yml`
 ```bash
 apiVersion: v1
 kind: Service
@@ -320,19 +673,18 @@ metadata:
 spec:
   ports:
     - port: 80
-      nodePort: 32607 #you can choose any port between 30000 - 32767
   selector:
     app: wordpress
     tier: frontend
-  type: NodePort
 ---
-apiVersion: apps/v1
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
 kind: Deployment
 metadata:
   name: wordpress
   labels:
     app: wordpress
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: wordpress
@@ -376,11 +728,6 @@ spec:
           path: "/"
 ```  
 
-Reboot all your nodes
-```bash
-sudo reboot
-```
-
 Deploy MariaDB and WordPress
 ```bash
 cd ~/kubeproj
@@ -388,4 +735,5 @@ kubectl create -f deployMariaDB.yml
 kubectl create -f deployWordPress.yml
 ```
 
-You can now access your WordPress website via your domain/public IP with specified port 32607 (or the node port of your choice) http://yourdomain:32607.
+You can now access your WordPress website via your sub-domain/public IP, e.g. `http://subdomain1.commandocloudlet.com`.
+

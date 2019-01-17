@@ -163,7 +163,7 @@ Firstly, the first YAML to run is the `es-statfulset.yaml` file. Do take note th
 
 To configure a **local** persistent volume, add the following script to the `es-statfulset.yaml` or a separate YAML file to create persistent volume. In this case, the script is added to the existing `es-statfulset.yaml` file. Add the script before the deployment of Elasticsearch.
 Change the size of the storage to your own preference. As the `es-statfulset.yaml` application is created in the namespace `kube-system`, same namespace has to be used for the PersistentVolume and PersistentVolumeClaim. The hostPath define the directory on where the logs should be stored in the node.
-```bash
+```yaml
 ---
 apiVersion: v1
 kind: PersistentVolume
@@ -294,7 +294,7 @@ kibana-logging-764d446c7d-jp6gk   1/1     Running   0          2m29s
 ```
 
 Now, run the `kibana-service.yaml` to expose the pods to external using NodePort. But before you apply the YAML file. Add in the following line to enable NodePort in `kibana-service.yaml`.
-```bash
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -460,7 +460,7 @@ nano /etc/kubernetes/manifests/kube-apiserver.yaml
 ```
 
 Create Nginx Ingress Controller deployment file `deployIngressController.yml`. Nginx Ingress Controller routes traffic from port 80/443 to the defined service endpoints specified by Ingress.
-```bash
+```yaml
 apiVersion: v1
 kind: Namespace
 metadata:
@@ -760,7 +760,7 @@ kubectl create secret generic wordpress-pass --from-literal=password=YOUR_PASSWO
 ```  
 
 Create MariaDB Deployment File `deployMariaDB.yml`
-```bash
+```yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -858,7 +858,7 @@ spec:
 ```  
 
 Create WordPress Deployment File `deployWordPress.yml`
-```bash
+```yaml
 apiVersion: v1
 kind: Service
 metadata:

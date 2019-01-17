@@ -460,6 +460,10 @@ nano /etc/kubernetes/manifests/kube-apiserver.yaml
 ```
 
 Create Nginx Ingress Controller deployment file `deployIngressController.yml`. Nginx Ingress Controller routes traffic from port 80/443 to the defined service endpoints specified by Ingress.
+```bash
+curl -o deployIngressController.yml https://raw.githubusercontent.com/CloudCommandos/missions/master/orchestrate-containers/k8s%20files/deployIngressController.yml   
+```
+
 ```yaml
 apiVersion: v1
 kind: Namespace

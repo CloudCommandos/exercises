@@ -1,0 +1,94 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wordpress-mariadb
+  labels:
+    app: wordpress
+spec:
+  ports:
+    - port: 3306
+  selector:
+    app: wordpress
+    tier: mariadb
+  clusterIP: None
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: wordpress-mariadb-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: wordpress
+      tier: mariadb
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - ipBlock:
+        cidr: 10.244.0.0/16
+    - podSelector:
+        matchLabels:
+          app: wordpress
+          tier: frontend
+    ports:
+    - protocol: TCP
+      port: 3306
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 10.244.0.0/16
+    ports:
+    - protocol: TCP
+      port: 3306
+---
+apiVersion: apps/v1 # for versions before 1.9.0 use apps/v1beta2
+kind: Deployment
+metadata:
+  name: wordpress-mariadb
+  labels:
+    app: wordpress
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: wordpress
+      tier: mariadb
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: wordpress
+        tier: mariadb
+    spec:
+      containers:
+      - image: mariadb:latest
+        name: mariadb
+        env:
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: mariadb-pass
+              key: password
+        ports:
+        - containerPort: 3306
+          name: mariadb
+        volumeMounts:
+        - name: mariadb-persistent-storage
+          mountPath: /var/lib/mysql
+      volumes:
+      - name: mariadb-persistent-storage
+        cephfs:
+          monitors:
+            - 10.142.10.1:6789
+            - 10.142.10.2:6789
+            - 10.142.10.3:6789
+          user: admin
+          secretRef:
+            name: cephfs-pass
+          #secretFile: "/etc/ceph/user.secret"
+          readOnly: false
+          path: "/"

@@ -1,0 +1,15 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: name-virtual-host-ingress
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  rules:
+  - host: subdomain1.commandocloudlet.com
+    http:
+      paths:
+      - path: /*
+        backend:
+          serviceName: wordpress
+          servicePort: 80

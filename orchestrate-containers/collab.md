@@ -434,7 +434,7 @@ mkdir ~/kubeproj
 cd ~/kubeproj
 ```
 Create Ingress deployment file `deployIngress.yml`
-```bash
+```yaml
 apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:

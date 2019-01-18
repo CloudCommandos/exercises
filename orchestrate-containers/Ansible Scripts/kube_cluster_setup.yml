@@ -1,0 +1,72 @@
+---
+- hosts: all
+  remote_user: root
+
+  vars_prompt:
+    - name: "MasterIP"
+      prompt: "Please enter the Master Node IP address that has connection with the rest of the nodes in the cluster (e.g 192.168.0.100)"
+      default: "192.168.100.100"
+      private: no
+
+    - name: "SlaveName"
+      prompt: "Please enter the actual hostname of the Slave Node (e.g node1)"
+      default: "node1"
+      private: no
+
+    - name: "SlaveIP"
+      prompt: "Please enter the Slave Node IP address that resides in the same network range as the Master Node (e.g 192.168.100.101)"
+      default: "192.168.100.101"
+      private: no
+
+  tasks:
+    - name: Check if etcd file exists
+      stat: path=/etc/kubernetes/manifests/etcd.yaml
+      register: etcd
+
+    - name: Initialized the Master Node using canal as the pod network
+      shell: "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{MasterIP}}"
+      when: etcd.stat.exists == False
+
+    - name: Check if Kubernetes admin config exists
+      stat: path=$HOME/.kube/config
+      register: kubeconfig
+
+    - name: Setup Master Node
+      shell: |
+        sysctl net.bridge.bridge-nf-call-iptables=1
+        mkdir -p $HOME/.kube
+        sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
+        sudo chown $(id -u):$(id -g) $HOME/.kube/config
+      when: kubeconfig.stat.exists == False
+
+    - name: Check if pod network has already been set up
+      stat:
+        path: /etc/cni/net.d/calico-kubeconfig
+      register: podsetup
+
+    - name: Setting up the pod network
+      shell: |
+        kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/canal/rbac.yaml
+        kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/canal/canal.yaml
+      when: podsetup.stat.exists == False
+
+    - name: Checking cluster list for node
+      shell: "kubectl get nodes"
+      register: nodename
+
+    - name: Status of Slave Nodes
+      debug: msg="The specified node has already been added to the cluster or the hostname is already in used"
+      when: nodename.stdout.find(SlaveName) != -1
+
+    - name: Create new token for slave node to join cluster
+      shell: "kubeadm token create --print-join-command"
+      register: token
+      when: nodename.stdout.find(SlaveName) == -1
+
+    - name: Adding slave node into cluster
+      shell: "ssh {{SlaveIP}} {{token.stdout}}"
+      when: nodename.stdout.find(SlaveName) == -1
+
+    - name: Printing of node joining msg
+      debug: msg="Slave node with ip address {{SlaveIP}} has join the cluster using the command {{token.stdout}}"
+      when: nodename.stdout.find(SlaveName) == -1

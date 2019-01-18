@@ -408,7 +408,7 @@ Use `http://localhost:portnumber` to access the web interface or `curl http://lo
 To deploy Prometheus stack with Ingress Controller, we need to create an ingress yaml. The `hostname/subdomainname` can be your hostname of your worker node in `/etc/hosts` or the sub-domain of your site.
 ```yaml
 apiVersion: extensions/v1beta1
-kind: Ingress
+kind: Ingress	
 metadata:
   name: ingress-pga
   namespace: monitoring
@@ -439,9 +439,9 @@ spec:
           servicePort: 9093
 ```
 
-Now you can use the hostname/sub to access the web interface. You can now use Grafan to monitoring the status of your kubernetes cluster!
+Now you can use the hostname/sub to access the web interface. You can now use Grafan to monitor the status of your kubernetes cluster!
 
-If you would like to store the data to a persistent volume, head over [here](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/storage.md) to view the instructions.
+If you would like to store the data into a persistent volume, head over [here](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/storage.md) to view the instructions.
 
 ---
 # Kubernetes Workload - WordPress and MariaDB

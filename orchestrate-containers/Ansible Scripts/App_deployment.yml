@@ -1,0 +1,103 @@
+---
+- hosts: master
+  remote_user: root
+
+  vars_prompt:
+    - name: "MariaPass"
+      prompt: "Please enter the password for MariaDB"
+      private: yes
+      confirm: yes
+
+    - name: "WordPass"
+      prompt: "Please enter the password for WordPress"
+      private: yes
+      confirm: yes
+
+    - name: "Prometheus"
+      prompt: "Please enter the Prometheus url"
+      private: no
+
+    - name: "Grafana"
+      prompt: "Please enter the Grafana url"
+      private: no
+
+    - name: "Alertmanager"
+      prompt: "Please enter the Alertmanager url"
+      private: no
+
+    - name: "Kibana"
+      prompt: "Please enter the Kibana url"
+      private: no
+
+  tasks:
+    - name: Creating Kubernetes directory
+      file: path=/kubernetes state=directory
+
+    - name: Download and unzip the K8s file from Github
+      unarchive:
+        src: https://github.com/CloudCommandos/missions/raw/CC/orchestrate-containers/k8s%20files/testApp.tar
+        dest: /kubernetes
+        remote_src: yes
+
+    - name: Download and unzip the Prometheus file from Github
+      unarchive:
+        src: https://github.com/CloudCommandos/missions/raw/CC/orchestrate-containers/k8s%20files/prometheus.tar
+        dest: /kubernetes
+        remote_src: yes
+
+    - name: Download and unzip the Fluentd-Elasticsearch file from Github
+      unarchive:
+        src: https://github.com/CloudCommandos/missions/raw/CC/orchestrate-containers/k8s%20files/fluentd-elasticsearch.tar
+        dest: /kubernetes
+        remote_src: yes
+
+    - name: Change the default nodeport range
+      lineinfile:
+        path: /etc/kubernetes/manifests/kube-apiserver.yaml
+        insertafter: '    - kube-apiserver'
+        line: '    - --service-node-port-range=80-32767'
+
+    - name: Add the Prometheus url into the ingress file
+      lineinfile:
+        path: /kubernetes/prometheus/deployIngressPGA.yaml
+        regexp: 'prometheus.commandocloudlet.com'
+        line: '  - host: {{Prometheus}}'
+
+    - name: Add the Grafana url into the ingress file
+      lineinfile:
+        path: /kubernetes/prometheus/deployIngressPGA.yaml
+        regexp: 'grafana.commandocloudlet.com'
+        line: '  - host: {{Grafana}}'
+
+    - name: Add the Alertmanager url into the ingress file
+      lineinfile:
+        path: /kubernetes/prometheus/deployIngressPGA.yaml
+        regexp: 'alertmanager.commandocloudlet.com'
+        line: '  - host: {{Alertmanager}}'
+
+    - name: Add the Kibana url into the ingress file
+      lineinfile:
+        path: /kubernetes/fluentd_elasticsearch/deployIngressKibana.yml
+        regexp: 'kibana.commandocloudlet.com'
+        line: '  - host: {{Kibana}}'
+
+    - name: Check if the passwords have already been stored
+      shell: kubectl get secret
+      register: PassSecret
+
+    - name: Create and store MariaDB password
+      shell: kubectl create secret generic mariadb-pass --from-literal=password={{MariaPass}}
+      when: PassSecret.stdout.find("mariadb-pass") == -1
+
+    - name: Create and store WordPress password
+      shell: kubectl create secret generic wordpress-pass --from-literal=password={{WordPass}}
+      when: PassSecret.stdout.find("wordpress-pass") == -1
+
+    - name: Deploying Ingress, WordPress and MariaDB
+      shell: kubectl apply -f /kubernetes/testApp
+
+    - name: Deploying Prometheus
+      shell: kubectl apply -f /kubernetes/prometheus
+
+    - name: Deploying Fluentd-Elasticsearch
+      shell: kubectl apply -f /kubernetes/fluentd-elasticsearch

@@ -1038,6 +1038,11 @@ spec:
       containers:
       - image: wordpress:4.8-apache
         name: wordpress
+		resources:
+          requests:
+            cpu: "0.2"
+          limits:
+            cpu: "0.6"
         env:
         - name: WORDPRESS_DB_HOST
           value: wordpress-mariadb
@@ -1074,6 +1079,34 @@ kubectl create -f deployWordPress.yml
 ```
 
 You can now access your WordPress website via your sub-domain/public IP, e.g. `http://subdomain1.commandocloudlet.com`.
+
+Also deploy a Horizontal Pod Autoscaler (HPA) for WordPress. HPA for a deployment will not work if there are no resource requests/limits set for the deployment.
+The deployment file 'deployHPA.yml' is as such:
+```yaml
+apiVersion: autoscaling/v2beta2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: wordpress
+  namespace: default
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: wordpress
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 50
+```
+Deploy the HPA
+```bash
+kubectl apply -f deployHPA.yml
+```
 
 ## Ansible scripts
 

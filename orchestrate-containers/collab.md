@@ -229,6 +229,22 @@ volumes:
     path: "/"
 ```
 
+For a single master node, you might encounter an error for your elasticsearch-logging even though the status is running and Kibana web interface shows`plugin:elasticsearch@6.3.2 	Service Unavailable`  
+
+Do a `kubectl logs elasticsearch-logging-0 -n kube-system` to check for error
+```
+[WARN ][o.e.d.z.ZenDiscovery     ] [elasticsearch-logging-0] not enough master nodes discovered during pinging (found [[Candidate{node={elasticsearch-logging-0}{Wc2Yr6gNSsibEjP2CXoTdw}{i6xd9Gt9Q-m14F-ZP0ZIng}{10.244.2.185}{10.244.2.185:9300}, clusterStateVersion=-1}]], but needed [2]), pinging again
+```
+
+If the above error is shown, this can be resolved by add the following two lines to your env section of `es-statefulset.yaml` file.
+```yaml
+   env:
+   ...
+   
+   - name: discovery.zen.minimum_master_nodes #added
+     value: "1" #added
+```
+
 Once completed, run
 ```bash
 kubectl apply -f es-statfulset.yaml

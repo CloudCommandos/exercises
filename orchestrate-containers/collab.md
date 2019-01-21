@@ -213,6 +213,22 @@ volumes:
     claimName: elasticsearch-pv-claim
 ```
 
+Alternatively, if you are using **Ceph** for your storage, you can add the following lines. Change the IP address accordingly to your Ceph configurations.
+```yaml
+volumes:
+- name: elasticsearch-logging
+  cephfs:
+    monitors:
+      - 192.168.2.3:6789
+      - 192.168.2.4:6789
+      - 192.168.2.5:6789
+    user: admin
+    secretRef:
+      name: cephfs-pass
+    readOnly: false
+    path: "/"
+```
+
 Once completed, run
 ```bash
 kubectl apply -f es-statfulset.yaml
@@ -333,7 +349,7 @@ kubectl apply -f deployIngressKibana.yaml
 Use `kubectl get ingress --all-namespaces` to check for the ingress deployed.
 
 
-Now you can open up a browser and enter the your domain name specified in the `deployIngressKibana.yaml` host. 
+Now you can open up a browser and enter the your domain name specified in the `deployIngressKibana.yaml` host.
 
 If you encounter a issue that shows `{"statusCode":404,"error":"Not Found","message":"Not Found"}` when you open up the site, comment off the following line in `kibana-deployment.yaml`.
 ```bash
@@ -408,7 +424,7 @@ Use `http://localhost:portnumber` to access the web interface or `curl http://lo
 To deploy Prometheus stack with Ingress Controller, we need to create an ingress yaml. The `hostname/subdomainname` can be your hostname of your worker node in `/etc/hosts` or the sub-domain of your site.
 ```yaml
 apiVersion: extensions/v1beta1
-kind: Ingress	
+kind: Ingress
 metadata:
   name: ingress-pga
   namespace: monitoring

@@ -1114,16 +1114,16 @@ There are a few basic setup that needs to be done on the VMs and also the Ansibl
 - Update the `/etc/hosts` file of all VMs to include all the VMs hostname and ip address
 - Set up password-less login from Ansible host to all VMs and also Master VM to Slave VMs by using `ssh-keygen` & `ssh-copy-id targetIP`
 - Add the IP address of all the VMs in to `/etc/ansible/hosts` file on the Ansible host based on the example shown below:
-```bash
-$ vim /etc/ansible/hosts   
-...
-[master]
-10.142.168.10
-[worker1]
-10.142.168.11
-[worker2]
-10.142.168.12
-```  
+  ```bash
+  $ vim /etc/ansible/hosts   
+  ...
+  [master]
+  10.142.168.10
+  [worker1]
+  10.142.168.11
+  [worker2]
+  10.142.168.12
+  ```  
 
 There are a total of 5 ansible scripts written for different purposes. The scripts will be run in the sequence stated below to achieve the full kubernetes cluster setup with services running in containers.  
 1. Run the [kube_basic_setup.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/kube_basic_setup.yml) script on all the VMs to install all the dependencies for the kubernetes setup.  

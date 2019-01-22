@@ -240,7 +240,7 @@ If the above error is shown, this can be resolved by add the following two lines
 ```yaml
    env:
    ...
-   
+
    - name: discovery.zen.minimum_master_nodes #added
      value: "1" #added
 ```
@@ -1109,147 +1109,27 @@ kubectl apply -f deployHPA.yml
 ```
 
 ## Ansible scripts
-
-Create an Ansible script to install docker and kubernetes packages on the nodes.
-
+There are a few basic setup that needs to be done on the VMs and also the Ansible host machine before proceeding on to use the scripts:
+- Setting up the `sshd_config` file to enable ssh service
+- Update the `/etc/hosts` file of all VMs to include all the VMs hostname and ip address
+- Set up password-less login from Ansible host to all VMs and also Master VM to Slave VMs by using `ssh-keygen` & `ssh-copy-id targetIP`
+- Add the IP address of all the VMs in to `/etc/ansible/hosts` file on the Ansible host based on the example shown below:
 ```bash
----
-- hosts: all
-  remote_user: root
+$ vim /etc/ansible/hosts   
+...
+[master]
+10.142.168.10
+[worker1]
+10.142.168.11
+[worker2]
+10.142.168.12
+```  
 
-  tasks:
-    - name: install dependencies
-      apt:
-        name:
-            - apt-transport-https
-            - ca-certificates
-            - curl
-            - gnupg2
-            - software-properties-common
-            - python-pip
-            - python-apt
-            - openssl
-        state: present
-    - name: adding apt-key for docker
-      apt_key:
-        url: https://download.docker.com/linux/debian/gpg
-        state: present
+There are a total of 5 ansible scripts written for different purposes. The scripts will be run in the sequence stated below to achieve the full kubernetes cluster setup with services running in containers.  
+1. Run the [kube_basic_setup.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/kube_basic_setup.yml) script on all the VMs to install all the dependencies for the kubernetes setup.  
+1. Run the [kube_cluster_setup.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/kube_cluster_setup.yml) script to setup the kubernetes cluster. This script has to be run a number of times based on the number of slave nodes available.
+1. Run the [ceph_master_setup.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/ceph_master_setup.yml) script to setup the Ceph master.
+1. Run the [ceph_slave_setup.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/ceph_slave_setup.yml) script to setup the Ceph nodes. This script also has to be run a number of times based on the number of slave nodes available.
+1. Run the [App_deployment.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/App_deployment.yml) script to deploy the WordPress-MariaDB, EFK Logging and Prometheus Monitoring service.
 
-    - name: adding docker repo list
-      apt_repository:
-        repo: deb [arch=amd64] https://download.docker.com/linux/debian stretch stable
-        state: present
-
-    - name: install docker-ce and docker-compose
-      apt:
-        name:
-            - docker-compose
-            - docker-ce
-        state: present
-
-    - name: adding apt-key for kube
-      apt_key:
-        url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
-        state: present
-
-    - name: adding kube repo list
-      apt_repository:
-        repo: deb http://apt.kubernetes.io/ kubernetes-xenial main
-        state: present
-
-    - name: install docker-ce and docker-compose
-      apt:
-        name:
-            - kubeadm
-            - kubectl
-            - kubelet
-        state: present
-
-    - name: Commenting a line using the regualr expressions in Ansible.
-      replace:
-        path: /etc/fstab
-        regexp: '(.*swap.*sw.*)'
-        replace: '#\1'
-
-    - name: Disable swap
-      command: swapoff -a
-      when: ansible_swaptotal_mb > 0
-```
-
-Create a script to set up the kubernetes cluster
-
-```bash
----
-- hosts: all
-  remote_user: root
-
-  vars_prompt:
-    - name: "MasterIP"
-      prompt: "Please enter the Master Node IP address that has connection with the rest of the nodes in the cluster (e.g 192.168.0.100)"
-      default: "192.168.100.100"
-      private: no
-
-    - name: "SlaveName"
-      prompt: "Please enter the actual hostname of the Slave Node (e.g node1)"
-      default: "node1"
-      private: no
-
-    - name: "SlaveIP"
-      prompt: "Please enter the Slave Node IP address that resides in the same network range as the Master Node (e.g 192.168.100.101)"
-      default: "192.168.100.101"
-      private: no
-
-  tasks:
-    - name: Check if etcd file exists
-      stat: path=/etc/kubernetes/manifests/etcd.yaml
-      register: etcd
-
-    - name: Initialized the Master Node using canal as the pod network
-      shell: "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{MasterIP}}"
-      when: etcd.stat.exists == False
-
-    - name: Check if Kubernetes admin config exists
-      stat: path=$HOME/.kube/config
-      register: kubeconfig
-
-    - name: Setup Master Node
-      shell: |
-        sysctl net.bridge.bridge-nf-call-iptables=1
-        mkdir -p $HOME/.kube
-        sudo cp /etc/kubernetes/admin.conf $HOME/.kube/config
-        sudo chown $(id -u):$(id -g) $HOME/.kube/config
-      when: kubeconfig.stat.exists == False
-
-    - name: Check if pod network has already been set up
-      stat:
-        path: /etc/cni/net.d/calico-kubeconfig
-      register: podsetup
-
-    - name: Setting up the pod network
-      shell: |
-        kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/canal/rbac.yaml
-        kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/canal/canal.yaml
-      when: podsetup.stat.exists == False
-
-    - name: Checking cluster list for node
-      shell: "kubectl get nodes"
-      register: nodename
-
-    - name: Status of Slave Nodes
-      debug: msg="The specified node has already been added to the cluster or the hostname is already in used"
-      when: nodename.stdout.find(SlaveName) != -1
-
-    - name: Create new token for slave node to join cluster
-      shell: "kubeadm token create --print-join-command"
-      register: token
-      when: nodename.stdout.find(SlaveName) == -1
-
-    - name: Adding slave node into cluster
-      shell: "ssh {{SlaveIP}} {{token.stdout}}"
-      when: nodename.stdout.find(SlaveName) == -1
-
-    - name: Printing of node joining msg
-      debug: msg="Slave node with ip address {{SlaveIP}} has join the cluster using the command {{token.stdout}}"
-      when: nodename.stdout.find(SlaveName) == -1
-```
-Run the scripts using the command `ansible-playbook 'scriptname'`. Do remember to input the target ip addresses into the script and also the ansible hosts file.
+All the Ansible scripts written for this setup can be found [here](https://github.com/CloudCommandos/missions/tree/CC/orchestrate-containers/Ansible%20Scripts)  

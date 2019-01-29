@@ -104,11 +104,13 @@ Choose a pod network add-on before initialising the master node. The pod network
 
 For this installation, Flannel will be used as the pod network. Thus, the command to initialise is
 ```bash
-kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=masteripaddresstocluster
+kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address=masteripaddresstocluster --apiserver-cert-extra-sans=masterpublicipaddress
 ```
 The argument `--pod-network-cidr=10.244.0.0/16` is for Flannel setup.
 
 `--apiserver-advertise-address=` is to be set with the master node IP adddress that has connection with the rest of the nodes in the cluster.
+
+`--apiserver-cert-extra-sans=` is to include extra IP addresses or DNS names for the API Server serving certificate. This is for kubectl remote access to the kubernetes cluster.
 
 For Flannel, enter `sysctl net.bridge.bridge-nf-call-iptables=1` to pass bridged IPv4 traffic to  iptables chain.
 

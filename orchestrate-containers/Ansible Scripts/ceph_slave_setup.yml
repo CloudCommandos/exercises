@@ -1,0 +1,136 @@
+---
+- hosts: master
+  remote_user: root
+
+  vars_prompt:
+    - name: "CephIP"
+      prompt: "Please enter the Ceph public network address(e.g 192.168.100.0)"
+      default: "192.168.100.0"
+      private: no
+
+    - name: "SlaveHostname"
+      prompt: "Please enter the Slave Hostname(e.g worker1)"
+      default: "worker1"
+      private: no
+
+    - name: "LastNode"
+      prompt: "Is this the last node to be added in to the cluster? (y/n)"
+      default: "n"
+      private: no
+
+  tasks:
+
+    - name: Check if my-ceph directory exist
+      stat: path=~/my-ceph
+      register: cephdir
+
+    - name: my-ceph directory status
+      when: cephdir.stat.exists == False
+      debug: msg="Directory is missing!!! Aborting the setup!!!"
+
+    - name: My-ceph directory status check
+      when: cephdir.stat.exists == False
+      meta: end_play
+
+    - name: Checking if Ceph cluster has already been deployed
+      stat: path=~/my-ceph/ceph.conf
+      register: cephcluster
+
+    - name: Ceph cluster setup status
+      when: cephcluster.stat.exists == False
+      debug: msg="Ceph cluster is missing!!! Cluster has not been setup!!!"
+
+    - name: Ceph cluster status check
+      when: cephcluster.stat.exists == False
+      meta: end_play
+
+    - name: "Check if ceph network already exist"
+      shell: cat ~/my-ceph/ceph.conf
+      register: cephconf
+
+    - name: Editing ceph.conf file to include ceph network
+      when: cephconf.stdout.find(CephIP) == -1 
+      lineinfile: 
+        path: "~/my-ceph/ceph.conf"
+        line: "public network = {{CephIP}}/24"
+
+    - name: Install Ceph on Slave node
+      shell: "ceph-deploy install {{SlaveHostname}}"
+      args:
+        chdir: ~/my-ceph
+
+    - name: Check if Ceph already installed
+      shell: ssh {{SlaveHostname}} ceph --version
+      register: cephver
+
+    - name: Ceph version
+      when: cephver.stdout.find("ceph version 10") == -1
+      debug: msg="The ceph version installed on the slave node is {{cephver.stdout}}"
+
+    - name: Ceph version
+      when: cephver.stdout.find("ceph version 10") != -1
+      debug: msg="{{cephver.stdout}}"
+
+    - name: Copy config files and keys to slave node
+      shell: "ceph-deploy admin {{SlaveHostname}}"
+      args:
+        chdir: ~/my-ceph
+
+    - name: Check if osd is already set up
+      shell: lsblk
+      register: osddata
+
+    - name: Creating osd for Slave node
+      shell: ceph-deploy osd create {{SlaveHostname}}:/dev/sdb
+      args: 
+        chdir: ~/my-ceph
+      when: osddata.stdout.find("sdb2") == -1
+
+    - name: Deploy monitor for slave node
+      shell: ceph-deploy mon add {{SlaveHostname}}
+      args:
+        chdir: ~/my-ceph
+
+    - name: Checking ceph cluster
+      shell: ceph quorum_status --format json-pretty
+      register: cephclusterstatus
+
+    - name: Printing ceph cluster status
+      debug: msg="{{cephclusterstatus.stdout}}"
+
+    - name: End the script if it isnt the last node
+      when: "LastNode == 'n'"
+      meta: end_play
+
+    - name: Creating CephFS using two storage pools
+      shell: |
+        ceph osd pool create cephfs_data 128
+        ceph osd pool create cephfs_metadata 128
+        ceph fs new cephfs cephfs_metadata cephfs_data
+      args:
+        chdir: ~/my-ceph
+
+    - name: Checking if CephFS is running
+      shell: "ceph mds stat"
+      args:
+        chdir: ~/my-ceph
+      register: cephstat
+
+    - name: CephFS status
+      when: cephstat.stdout.find("active") != -1
+      debug: msg="CephFS is running!!!"
+
+    - name: Obtain the Ceph admin key
+      shell: "ceph auth get client.admin | grep key | cut -d ' ' -f 3"
+      register: CephAdminKey
+
+    - name: Print key
+      debug: msg="{{CephAdminKey.stdout}}"
+
+    - name: Checking if CephFS key has already been stored
+      shell: kubectl get secret
+      register: secretkey
+
+    - name: Store CephFS key
+      shell: kubectl create secret generic cephfs-pass --from-literal=key={{CephAdminKey.stdout}}
+      when: secretkey.stdout.find("cephfs-pass") == -1

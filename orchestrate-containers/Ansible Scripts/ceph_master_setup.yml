@@ -1,0 +1,79 @@
+---
+- hosts: master
+  remote_user: root
+
+  vars_prompt:
+    - name: "CephIP"
+      prompt: "Please enter the Ceph public network address(e.g 192.168.100.0)"
+      default: "192.168.100.0"
+      private: no
+
+    - name: "MasterHostname"
+      prompt: "Please enter the Master Hostname(e.g master)"
+      default: "master"
+      private: no
+
+  tasks:
+    - name: adding apt-key for ceph
+      apt_key:
+        url: https://download.ceph.com/keys/release.asc
+        state: present
+
+    - name: adding ceph repo list
+      apt_repository:
+        repo: deb https://download.ceph.com/debian-jewel/ stretch main
+        state: present
+
+    - name: install ceph-deploy
+      apt:
+        name:
+            - ceph-deploy
+        state: present
+
+    - name: Creating my-ceph directory
+      file: path=~/my-ceph state=directory
+
+    - name: Checking if Ceph cluster has already been deployed
+      stat: path=~/my-ceph/ceph.conf
+      register: cephcluster
+
+    - name: Creating Ceph cluster
+      shell: "ceph-deploy new {{MasterHostname}}"
+      args:
+        chdir: ~/my-ceph
+      when: cephcluster.stat.exists == False
+
+    - name: "Check if ceph network already exist"
+      shell: cat ~/my-ceph/ceph.conf
+      register: cephconf
+
+    - name: Editing ceph.conf file to include ceph network
+      when: cephconf.stdout.find(CephIP) == -1 
+      lineinfile: 
+        path: "~/my-ceph/ceph.conf"
+        line: "public network = {{CephIP}}/24"
+
+    - name: Install Ceph on Master node
+      shell: "ceph-deploy install {{MasterHostname}}"
+      args:
+        chdir: ~/my-ceph
+
+    - name: Deploy initial monitors and create Ceph keys
+      shell: "ceph-deploy mon create-initial"
+      args:
+        chdir: ~/my-ceph
+
+    - name: Copy config files and keys to master nodes
+      shell: "ceph-deploy admin {{MasterHostname}}"
+      args:
+        chdir: ~/my-ceph
+
+    - name: Creating osd for Master node
+      shell: ceph-deploy osd create {{MasterHostname}}:/dev/sdb
+      args: 
+        chdir: ~/my-ceph
+
+    - name: Creating meta-data server for CephFS
+      shell: "ceph-deploy mds create {{MasterHostname}}"
+      args:
+        chdir: ~/my-ceph

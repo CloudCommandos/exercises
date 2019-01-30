@@ -1040,7 +1040,7 @@ spec:
       containers:
       - image: wordpress:4.8-apache
         name: wordpress
-		resources:
+        resources:
           requests:
             cpu: "0.2"
           limits:

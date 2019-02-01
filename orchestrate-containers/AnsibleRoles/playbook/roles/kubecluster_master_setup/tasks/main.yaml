@@ -1,0 +1,19 @@
+    - name: Initialized the Master Node using canal as the pod network
+      shell: "kubeadm init --pod-network-cidr=10.244.0.0/16 --apiserver-advertise-address={{MasterPriIP}} --apiserver-cert-extra-sans={{MasterPubIP}}"
+      args:
+        creates: /etc/kubernetes/manifests/etcd.yaml
+
+    - name: Setup Master Node
+      shell: |
+        sysctl net.bridge.bridge-nf-call-iptables=1
+        mkdir -p $HOME/.kube
+        sudo cp -f /etc/kubernetes/admin.conf $HOME/.kube/config
+        sudo chown $(id -u):$(id -g) $HOME/.kube/config
+      changed_when: False
+        
+    - name: Setting up the pod network
+      shell: |
+        kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/canal/rbac.yaml
+        kubectl apply -f https://docs.projectcalico.org/v3.3/getting-started/kubernetes/installation/hosted/canal/canal.yaml
+      args: 
+        creates: /etc/cni/net.d/calico-kubeconfig

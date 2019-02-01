@@ -1,0 +1,57 @@
+    - name: Install Ceph on Slave node
+      shell: "ceph-deploy install {{item}}"
+      loop: "{{Slaves}}"
+      args:
+        chdir: ~/my-ceph
+      changed_when: False
+
+    - name: Copy config files and keys to slave node
+      shell: "ceph-deploy admin {{item}}"
+      loop: "{{Slaves}}"
+      args:
+        chdir: ~/my-ceph
+      changed_when: False
+
+    - name: Gathering Disk data of all worker nodes
+      shell: ssh {{item}} lsblk
+      register: DiskData
+      loop:  "{{Slaves}}"
+      changed_when: False
+
+      #- name: Check if /dev/sdb is present for Ceph setup
+      #file:
+      #  path: "/{{item.item}}"
+      #  state: touch
+      #loop: "{{DiskData.results}}"
+      #when: item.stdout_lines | join('') is search(Disk)
+      #changed_when: False
+
+    - name: Skip if Ceph has not been setup on node
+      file:
+        path: "/{{item.item}}"
+        state: touch
+      loop: "{{DiskData.results}}"
+      when: item.stdout_lines | join('') is search('/var/lib/ceph/osd/ceph')
+      changed_when: False
+
+    - name: Creating osd for Slave node
+      shell: ceph-deploy osd create {{item}}:/dev/{{Disk}}
+      args: 
+        chdir: ~/my-ceph
+        creates: /{{item}}
+      loop: "{{Slaves}}"
+
+    - name: Deploy monitor for slave node
+      shell: ceph-deploy mon add {{item}}
+      loop: "{{Slaves}}"
+      args:
+        chdir: ~/my-ceph
+      changed_when: False
+
+    - name: Checking ceph cluster
+      shell: ceph quorum_status --format json-pretty
+      register: cephclusterstatus
+      changed_when: False
+
+    - name: Printing ceph cluster status
+      debug: msg="{{cephclusterstatus.stdout_lines}}"

@@ -1,0 +1,33 @@
+    - name: Creating CephFS using two storage pools
+      shell: |
+        ceph osd pool create cephfs_data 128
+        ceph osd pool create cephfs_metadata 128
+        ceph fs new cephfs cephfs_metadata cephfs_data
+      args:
+        chdir: ~/my-ceph
+      changed_when: False
+
+    - name: Checking if CephFS is running
+      shell: "ceph mds stat"
+      args:
+        chdir: ~/my-ceph
+      register: cephstat
+      changed_when: False
+
+    - name: CephFS status
+      when: cephstat.stdout.find("active") != -1
+      debug: msg="{{cephstat.stdout}}"
+
+    - name: Obtain the Ceph admin key
+      shell: "ceph auth get client.admin | grep key | cut -d ' ' -f 3"
+      register: CephAdminKey
+      changed_when: False
+
+    - name: Checking if CephFS key has already been stored
+      shell: kubectl get secret
+      register: secretkey
+      changed_when: False
+
+    - name: Store CephFS key
+      shell: kubectl create secret generic cephfs-pass --from-literal=key={{CephAdminKey.stdout}}
+      when: secretkey.stdout.find("cephfs-pass") == -1

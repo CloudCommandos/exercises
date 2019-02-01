@@ -1,0 +1,7 @@
+- import_playbook: kube_basic.yaml 
+- import_playbook: kubecluster_master_setup.yaml
+- import_playbook: kubecluster_slave_join.yaml
+- import_playbook: ceph_master_setup.yaml
+- import_playbook: ceph_slave_join.yaml
+- import_playbook: create_cephfs.yaml
+- import_playbook: app_deploy.yaml

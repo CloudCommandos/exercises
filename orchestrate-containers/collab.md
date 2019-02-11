@@ -1118,18 +1118,18 @@ There are a few basic setup that needs to be done on the VMs and also the Ansibl
 
 Once the basic setup is completed for the VMs and Ansible host machine, follow the steps below to deploy and run containers using the ansible scripts provided:  
 1. Clone the repository from github using
-  ```bash
-  git clone https://github.com/CloudCommandos/missions.git
-  ```  
+   ```bash
+   git clone https://github.com/CloudCommandos/missions.git
+   ```  
 1. Change directory to the playbook folder containing all the ansible scripts using
-  ```bash
-  cd ~/missions/orchestrate-containers/AnsibleRoles/playbook/
-  ```  
+   ```bash
+   cd ~/missions/orchestrate-containers/AnsibleRoles/playbook/
+   ```  
 1. Edit the variables in `group_vars/all.yml` file to suit your own deployment.  
 
 1. Edit the `host_deploy` file to include ip address of VMs from your own setup.  
 
 1. Finally run the following command to automate the whole setup, from kubernetes cluster to the deployment of containers (Take note to run this command in the playbook folder)
-  ```bash
-  ansible-playbook k8s-all.yaml -i host_deploy
-  ```
+   ```bash
+   ansible-playbook k8s-all.yaml -i host_deploy
+   ```

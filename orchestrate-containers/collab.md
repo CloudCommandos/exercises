@@ -1114,24 +1114,22 @@ kubectl apply -f deployHPA.yml
 There are a few basic setup that needs to be done on the VMs and also the Ansible host machine before proceeding on to use the scripts:
 - Setting up the `sshd_config` file to enable ssh service
 - Update the `/etc/hosts` file of all VMs to include all the VMs hostname and ip address
-- Set up password-less login from Ansible host to all VMs and also Master VM to Slave VMs by using `ssh-keygen` & `ssh-copy-id targetIP`
-- Add the IP address of all the VMs in to `/etc/ansible/hosts` file on the Ansible host based on the example shown below:
+- Set up password-less login from Ansible host to all VMs and also Master VM to Slave VMs by using `ssh-keygen` & `ssh-copy-id targetIP`  
+
+Once the basic setup is completed for the VMs and Ansible host machine, follow the steps below to deploy and run containers using the ansible scripts provided:  
+1. Clone the repository from github using
   ```bash
-  $ vim /etc/ansible/hosts   
-  ...
-  [master]
-  10.142.168.10
-  [worker1]
-  10.142.168.11
-  [worker2]
-  10.142.168.12
+  git clone https://github.com/CloudCommandos/missions.git
   ```  
+1. Change directory to the playbook folder containing all the ansible scripts using
+  ```bash
+  cd ~/missions/orchestrate-containers/AnsibleRoles/playbook/
+  ```  
+1. Edit the variables in `group_vars/all.yml` file to suit your own deployment.  
 
-There are a total of 5 ansible scripts written for different purposes. The scripts will be run in the sequence stated below to achieve the full kubernetes cluster setup with services running in containers.  
-1. Run the [kube_basic_setup.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/kube_basic_setup.yml) script on all the VMs to install all the dependencies for the kubernetes setup.  
-1. Run the [kube_cluster_setup.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/kube_cluster_setup.yml) script to setup the kubernetes cluster. This script has to be run a number of times based on the number of slave nodes available.
-1. Run the [ceph_master_setup.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/ceph_master_setup.yml) script to setup the Ceph master.
-1. Run the [ceph_slave_setup.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/ceph_slave_setup.yml) script to setup the Ceph nodes. This script also has to be run a number of times based on the number of slave nodes available.
-1. Run the [App_deployment.yml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/Ansible%20Scripts/App_deployment.yml) script to deploy the WordPress-MariaDB, EFK Logging and Prometheus Monitoring service.
+1. Edit the `host_deploy` file to include ip address of VMs from your own setup.  
 
-All the Ansible scripts written for this setup can be found [here](https://github.com/CloudCommandos/missions/tree/CC/orchestrate-containers/Ansible%20Scripts)  
+1. Finally run the following command to automate the whole setup, from kubernetes cluster to the deployment of containers (Take note to run this command in the playbook folder)
+  ```bash
+  ansible-playbook k8s-all.yaml -i host_deploy
+  ```

@@ -1,0 +1,5 @@
+- hosts: kube-slave
+  become: yes
+  roles:
+    - kubecluster_slave_join
+

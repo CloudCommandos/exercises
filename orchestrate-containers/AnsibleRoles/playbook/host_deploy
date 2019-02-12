@@ -1,0 +1,9 @@
+#Remember to add "-i host_deploy" in the ansible-playbook command.
+
+[kube-master]
+master ansible_ssh_host=192.168.6.238
+
+[kube-slave]
+worker1 ansible_ssh_host=192.168.7.42
+worker2 ansible_ssh_host=192.168.6.204
+worker3 ansible_ssh_host=192.168.6.206

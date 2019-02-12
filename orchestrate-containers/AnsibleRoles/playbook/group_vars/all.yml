@@ -1,0 +1,29 @@
+# KUBERNETES VARIABLES
+# The public IP address of the master node.
+MasterPubIP: 192.168.6.238
+# The IP addresses of the master node use for the setting up of the cluster.
+MasterPriIP: 192.168.100.100
+
+# CEPH VARIABLES
+# The IP network used for the setup of the cluster and ceph.
+NetIP: 192.168.100.0/24
+# The hostname of master node.
+MasterHostname: master
+# The hostname of all the slaves in the cluster. (Comment away if dont need)
+Slaves:
+  - worker1
+  - worker2
+  - worker3
+#The Disk to be use for the Ceph setup (e.g. sdb).
+Disk: sdb
+
+# DEPLOYMENT VARIABLES
+# The URLS for the deployment.
+Prometheus: prom.com
+Grafana: graf.com
+Alertmanager: alertman.com
+Kibana: kib.com
+
+# The password for MariaDB & WordPress
+MariaPass: 12345
+WordPass: 12345

@@ -1,0 +1,20 @@
+# Installation of dependencies on VMs to prepare for kubernetes cluster setup
+- import_playbook: kube_basic.yaml 
+
+# Setting up Master node of the kubernetes cluster
+- import_playbook: kubecluster_master_setup.yaml
+
+# Adding the slave nodes in to the kubernetes cluster
+- import_playbook: kubecluster_slave_join.yaml
+
+# Setting up ceph on master node
+- import_playbook: ceph_master_setup.yaml
+
+# Setting up ceph on slave nodes
+- import_playbook: ceph_slave_join.yaml
+
+# Create cephfs after ceph has been setup in the cluster
+- import_playbook: create_cephfs.yaml
+
+# deployment of applications using containers on the kubernetes cluster
+- import_playbook: app_deploy.yaml

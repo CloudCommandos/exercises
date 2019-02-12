@@ -1135,7 +1135,7 @@ Once the basic setup is completed for the VMs and Ansible host machine, follow t
    ```  
 
 Another method known as tagging can be used to run all the Ansible scripts or just one of the script which is needed. Instead of using `k8s-all.yaml` script which imports and run all the scripts without any control over it, a `site-config.yaml` script is created with each role having a tag. A snippet of the `site-config.yaml` is shown below:
-```bash
+```yaml
 - name: Install Kubernetes Dependencies
   hosts:
     kube-master

@@ -1132,4 +1132,28 @@ Once the basic setup is completed for the VMs and Ansible host machine, follow t
 1. Finally run the following command to automate the whole setup, from kubernetes cluster to the deployment of containers (Take note to run this command in the playbook folder)
    ```bash
    ansible-playbook k8s-all.yaml -i host_deploy
-   ```
+   ```  
+
+Another method known as tagging can be used to run all the Ansible scripts or just one of the script which is needed. Instead of using `k8s-all.yaml` script which imports and run all the scripts without any control over it, a `site-config.yaml` script is created with each role having a tag. A snippet of the `site-config.yaml` is shown below:
+```bash
+- name: Install Kubernetes Dependencies
+  hosts:
+    kube-master
+    kube-slave
+  become: yes
+  roles:
+    - role: kube_basic
+      tags: kube_basic
+
+- name: Set up Master node for Kubernetes cluster
+  hosts:
+    kube-master
+  become: yes
+  roles:
+    - role: kubecluster_master_setup
+      tags: kubecluster_master_setup
+```  
+The tag can then be specify in the command to only run the specfic script. An example of the command can be seen below:
+```bash
+ansible-playbook -i host_deploy site-config.yaml --tags kube_basic
+```

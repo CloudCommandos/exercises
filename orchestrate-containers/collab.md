@@ -446,7 +446,7 @@ Now you can use the hostname/subdomainname to access the web interface of Promet
 If you would like to store the data into a **persistent volume**, head over [here](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/storage.md) to view the instructions.
 
 ### Integrating Prometheus Stack with Slack
-**This needs to be configured before deploying Alertmanager**
+**Configure this before deploying Alertmanager**
 
 We can also integrate Slack with Prometheus stack, which enables Alertmanager to send alerts to your Slack channel. Firstly, set up your Slack and create a channel for your alerts, in this case `#alerts` will be used.
 
@@ -465,7 +465,7 @@ The long encoded texts you see above is the Alertmanager configuration. Let's de
 ```bash
 echo 'Imdsb2JhbCI6IAogICJyZXNvbHZlX3RpbWVvdXQiOiAiNW0iCiJyZWNlaXZlcnMiOiAKLSAibmFtZSI6ICJudWxsIgoicm91dGUiOiAKICAiZ3JvdXBfYnkiOiAKICAtICJqb2IiCiAgImdyb3VwX2ludGVydmFsIjogIjVtIgogICJncm91cF93YWl0IjogIjMwcyIKICAicmVjZWl2ZXIiOiAibnVsbCIKICAicmVwZWF0X2ludGVydmFsIjogIjEyaCIKICAicm91dGVzIjogCiAgLSAibWF0Y2giOiAKICAgICAgImFsZXJ0bmFtZSI6ICJEZWFkTWFuc1N3aXRjaCIKICAgICJyZWNlaXZlciI6ICJudWxsIg==' | base64 --decode
 ```
-Output after decode:
+Output:
 ```yaml
 "global":
   "resolve_timeout": "5m"

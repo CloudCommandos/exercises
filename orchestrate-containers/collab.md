@@ -439,13 +439,14 @@ Use `http://localhost:portnumber` to access the web interface or `curl http://lo
 | Grafana | 3000 |
 | Alertmanager | 9093 |
 
-To deploy Prometheus stack with Ingress Controller, we need to create an [ingress yaml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/k8s%20files/deployIngressPGA.yaml). The `hostname/subdomainname` can be your hostname of your worker node in `/etc/hosts` or the sub-domain of your site.
+To deploy Prometheus stack with Ingress Controller, we need to create an [ingress yaml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/k8s%20files/deployIngressPGA.yaml). Replace the `hostname/subdomainname` with your hostname of your worker node in `/etc/hosts` or the sub-domain of your site.
 
-Now you can use the hostname/sub to access the web interface. You can now use Grafana to monitor the status of your kubernetes cluster!
+Now you can use the hostname/subdomainname to access the web interface of Prometheus, Grafana and Alertmanager. You can now use Grafana to monitor the status of your kubernetes cluster!
 
-If you would like to store the data into a persistent volume, head over [here](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/storage.md) to view the instructions.
+If you would like to store the data into a **persistent volume**, head over [here](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/storage.md) to view the instructions.
 
 ### Integrating Prometheus Stack with Slack
+**This needs to be configured before deploying Alertmanager**
 
 We can also integrate Slack with Prometheus stack, which enables Alertmanager to send alerts to your Slack channel. Firstly, set up your Slack and create a channel for your alerts, in this case `#alerts` will be used.
 
@@ -487,7 +488,7 @@ Now lets create a configuration to integrate with Slack. Create a yaml file as `
 
 Once the `alertmanager.yaml` is ready, make sure you delete the `alertanager-secret.yaml` from the `manifests` folder from the `kube-prometheus` repository as you would like to use your own Alertmanager configuration. Make sure the namespaces `monitoring` is created as well.
 
-**Note:** Do this steps before you run `kubectl apply -f manifests/`. The alertmanager secret needs to be available first before the deployment.
+**Note:** Do this steps before you run `kubectl apply -f manifests/`. The Alertmanager secret needs to be available first before the deployment.
 
 Now run the following command to create the Alertmanager secret with the `alertmanager.yaml` that you just created.
 ```bash

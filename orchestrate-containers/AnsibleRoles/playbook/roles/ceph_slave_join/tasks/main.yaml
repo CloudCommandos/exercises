@@ -18,14 +18,6 @@
       loop:  "{{Slaves}}"
       changed_when: False
 
-      #- name: Check if /dev/sdb is present for Ceph setup
-      #file:
-      #  path: "/{{item.item}}"
-      #  state: touch
-      #loop: "{{DiskData.results}}"
-      #when: item.stdout_lines | join('') is search(Disk)
-      #changed_when: False
-
     - name: Skip if Ceph has not been setup on node
       file:
         path: "/{{item.item}}"
@@ -36,7 +28,7 @@
 
     - name: Creating osd for Slave node
       shell: ceph-deploy osd create {{item}}:/dev/{{Disk}}
-      args: 
+      args:
         chdir: ~/my-ceph
         creates: /{{item}}
       loop: "{{Slaves}}"

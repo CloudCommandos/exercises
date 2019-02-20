@@ -439,43 +439,63 @@ Use `http://localhost:portnumber` to access the web interface or `curl http://lo
 | Grafana | 3000 |
 | Alertmanager | 9093 |
 
-To deploy Prometheus stack with Ingress Controller, we need to create an ingress yaml. The `hostname/subdomainname` can be your hostname of your worker node in `/etc/hosts` or the sub-domain of your site.
+To deploy Prometheus stack with Ingress Controller, we need to create an [ingress yaml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/k8s%20files/deployIngressPGA.yaml). Replace the `hostname/subdomainname` with your hostname of your worker node in `/etc/hosts` or the sub-domain of your site.
+
+Now you can use the hostname/subdomainname to access the web interface of Prometheus, Grafana and Alertmanager. You can now use Grafana to monitor the status of your kubernetes cluster!
+
+If you would like to store the data into a **persistent volume**, head over [here](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/storage.md) to view the instructions.
+
+### Integrating Prometheus Stack with Slack
+**Configure this before deploying Alertmanager**
+
+We can also integrate Slack with Prometheus stack, which enables Alertmanager to send alerts to your Slack channel. Firstly, set up your Slack and create a channel for your alerts, in this case `#alerts` will be used.
+
+Next, click on your Slack and go to Administration, and Manage App. Search for Incoming WebHooks. Incoming WebHooks app is required for external sources to post message on your Slack. Add configuration and choose the channel you want to post to, in this case the channel is '#alerts'. Once you selected the channel, click Add Incoming WebHooks integration. A Webhook URL will be generated, **copy down this URL** as it will be used in Alertmanager configuration. Example of the URL: `https://hooks.slack.com/services/<token>`
+
+Alertmanager configuration can be found in `alertmanager-secret.yaml` file. Example of the `alertmanager-secret.yaml` extracted from the `kube-prometheus` repository is shown below.
 ```yaml
-apiVersion: extensions/v1beta1
-kind: Ingress
-metadata:
-  name: ingress-pga
-  namespace: monitoring
-  annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /
-spec:
-  rules:
-  - host: hostname/subdomainname
-    http:
-      paths:
-      - path: /*
-        backend:
-          serviceName: prometheus-k8s
-          servicePort: 9090
-  - host: hostname/subdomainname
-    http:
-      paths:
-      - path: /*
-        backend:
-          serviceName: grafana
-          servicePort: 3000
-  - host: hostname/subdomainname
-    http:
-      paths:
-      - path: /*
-        backend:
-          serviceName: alertmanager-main
-          servicePort: 9093
+apiVersion: v1
+data:
+  alertmanager.yaml: Imdsb2JhbCI6IAogICJyZXNvbHZlX3RpbWVvdXQiOiAiNW0iCiJyZWNlaXZlcnMiOiAKLSAibmFtZSI6ICJudWxsIgoicm91dGUiOiAKICAiZ3JvdXBfYnkiOiAKICAtICJqb2IiCiAgImdyb3VwX2ludGVydmFsIjogIjVtIgogICJncm91cF93YWl0IjogIjMwcyIKICAicmVjZWl2ZXIiOiAibnVsbCIKICAicmVwZWF0X2ludGVydmFsIjogIjEyaCIKICAicm91dGVzIjogCiAgLSAibWF0Y2giOiAKICAgICAgImFsZXJ0bmFtZSI6ICJEZWFkTWFuc1N3aXRjaCIKICAgICJyZWNlaXZlciI6ICJudWxsIg==
+kind: Secret
+...
 ```
 
-Now you can use the hostname/sub to access the web interface. You can now use Grafan to monitor the status of your kubernetes cluster!
+The long encoded texts you see above is the Alertmanager configuration. Let's decode and have a look at the configuration.
+```bash
+echo 'Imdsb2JhbCI6IAogICJyZXNvbHZlX3RpbWVvdXQiOiAiNW0iCiJyZWNlaXZlcnMiOiAKLSAibmFtZSI6ICJudWxsIgoicm91dGUiOiAKICAiZ3JvdXBfYnkiOiAKICAtICJqb2IiCiAgImdyb3VwX2ludGVydmFsIjogIjVtIgogICJncm91cF93YWl0IjogIjMwcyIKICAicmVjZWl2ZXIiOiAibnVsbCIKICAicmVwZWF0X2ludGVydmFsIjogIjEyaCIKICAicm91dGVzIjogCiAgLSAibWF0Y2giOiAKICAgICAgImFsZXJ0bmFtZSI6ICJEZWFkTWFuc1N3aXRjaCIKICAgICJyZWNlaXZlciI6ICJudWxsIg==' | base64 --decode
+```
+Output:
+```yaml
+"global":
+  "resolve_timeout": "5m"
+"receivers":
+- "name": "null"
+"route":
+  "group_by":
+  - "job"
+  "group_interval": "5m"
+  "group_wait": "30s"
+  "receiver": "null"
+  "repeat_interval": "12h"
+  "routes":
+  - "match":
+      "alertname": "DeadMansSwitch"
+    "receiver": "null"
+```
 
-If you would like to store the data into a persistent volume, head over [here](https://github.com/coreos/prometheus-operator/blob/master/Documentation/user-guides/storage.md) to view the instructions.
+Now lets create a configuration to integrate with Slack. Create a yaml file as `alertmanager.yaml` and paste the content from [alertmanager.yaml](https://raw.githubusercontent.com/CloudCommandos/missions/CC/orchestrate-containers/k8s%20files/alertmanager.yaml) or simply download the file. Place your Webhook URL in the `alertmanager.yaml` as indicated.
+
+Once the `alertmanager.yaml` is ready, make sure you delete the `alertanager-secret.yaml` from the `manifests` folder from the `kube-prometheus` repository as you would like to use your own Alertmanager configuration. Make sure the namespaces `monitoring` is created as well.
+
+**Note:** Do this steps before you run `kubectl apply -f manifests/`. The Alertmanager secret needs to be available first before the deployment.
+
+Now run the following command to create the Alertmanager secret with the `alertmanager.yaml` that you just created.
+```bash
+kubectl create secret generic alertmanager-main -n monitoring --from-file=alertmanager.yaml --type=Opaque
+```
+
+Check and make sure the secret is running, thereafter, continue with the steps to deploy the Prometheus stack. Open up the Alertmanger web interface, go to Status and you should now see your configuration in the Config section. Your Slack should be receiving alerts from your Alertmanager now.
 
 ---
 # Kubernetes Workload - WordPress and MariaDB
@@ -1132,4 +1152,28 @@ Once the basic setup is completed for the VMs and Ansible host machine, follow t
 1. Finally run the following command to automate the whole setup, from kubernetes cluster to the deployment of containers (Take note to run this command in the playbook folder)
    ```bash
    ansible-playbook k8s-all.yaml -i host_deploy
-   ```
+   ```  
+
+Another method known as tagging can be used to run all the Ansible scripts or just one of the script which is needed. Instead of using `k8s-all.yaml` script which imports and run all the scripts without any control over it, a `site-config.yaml` script is created with each role having a tag. A snippet of the `site-config.yaml` is shown below:
+```yaml
+- name: Install Kubernetes Dependencies
+  hosts:
+    kube-master
+    kube-slave
+  become: yes
+  roles:
+    - role: kube_basic
+      tags: kube_basic
+
+- name: Set up Master node for Kubernetes cluster
+  hosts:
+    kube-master
+  become: yes
+  roles:
+    - role: kubecluster_master_setup
+      tags: kubecluster_master_setup
+```  
+The tag can then be specify in the command to only run the specfic script. An example of the command can be seen below:
+```bash
+ansible-playbook -i host_deploy site-config.yaml --tags kube_basic
+```

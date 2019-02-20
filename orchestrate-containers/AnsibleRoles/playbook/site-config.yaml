@@ -1,0 +1,56 @@
+- name: Install Kubernetes Dependencies
+  hosts:
+    kube-master
+    kube-slave
+  become: yes
+  roles:
+    - role: kube_basic
+      tags: kube_basic
+
+- name: Set up Master node for Kubernetes cluster
+  hosts:
+    kube-master
+  become: yes
+  roles:
+    - role: kubecluster_master_setup
+      tags: kubecluster_master_setup
+
+- name: Adding Slave nodes to the Kubernetes cluster
+  hosts:
+    kube-slave
+  become: yes
+  roles:
+    - role: kubecluster_slave_join
+      tags: kubecluster_slave_join
+
+- name: Set up Ceph on Master node
+  hosts:
+    kube-master
+  become: yes
+  roles:
+    - role: ceph_master_setup
+      tags: ceph_master_setup
+
+- name: Set up Ceph on Slave nodes
+  hosts:
+    kube-master
+  become: yes
+  roles:
+    - role: ceph_slave_join
+      tags: ceph_slave_join
+
+- name: Create CephFS
+  hosts:
+    kube-master
+  become: yes
+  roles:
+    - role: create_cephfs
+      tags: create_cephfs
+
+- name: Deploy applications using containers on Kubernetes cluster
+  hosts:
+    kube-master
+  become: yes
+  roles:
+    - role: app_deploy
+      tags: app_deploy

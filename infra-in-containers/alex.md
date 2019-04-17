@@ -10,7 +10,7 @@ For this setup, Docker will be used to replace the inner VMs with Containers for
     ```
     - Adding Docker’s official GPG key:   
     ```
-    curl -FsSL https://download.docker.com/linux/debian/gpg | apt-key add -
+    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
     ```
     - Set up the repository:   
     ```

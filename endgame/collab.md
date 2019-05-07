@@ -13,6 +13,127 @@ Install Proxmox VE v5.4 on all 5 servers. You can use a flashed a USB thumb driv
 
 ---
 ## 2. Internet Access Provisioning
+We will set up pve0 & pve1 with connection to the internet, but only 1 server will be connected to the internet at one time. The traffic in and out of the Proxmox cluster will be monitor by the firewall VM created in the cluster. We decided to go with OPNsense for our firewall because of its intuitive and user-friendly webGUI interface. The setup is as such:
+
+|   Interfaces   |   Firewall 1(pve0)   |   Firewall 2(pve1)   |   CARP/Comment   |
+|---|---|---|---|
+|   WAN	  |   192.168.24.24/28   |   192.168.24.25/28 |   [Public IP]   |
+|   LAN	  |   10.0.1.6/24	  |   10.0.1.7/24   |   10.0.1.5/24   |
+|   HA  	|   10.0.1.6/24	  |   10.0.1.7/24   |   Use LAN network because not enough network interface   |
+
+As shown above, both server will be sharing 1 public IP address and only one server will be using the public IP address at one time. This is achieved by using the Common Address Redundancy Protocol(CARP) available on OPNsense.  
+
+### Basic Setup
+The following details the steps taken to set up the firewall VMs:  
+
+1. Boot OPNsense iso image
+
+1. Login to OPNsense using the following credentials:
+   * ID : installer
+   * Password : opnsense   
+
+1. Proceed with the installation setup by choosing default options    
+
+1. Reboot to complete installation  
+
+1. Login using `root` account and the password you set and you should see the following:
+
+   ```
+   ----------------------------------------------
+   |      Hello, this is OPNsense 19.1          |         @@@@@@@@@@@@@@@
+   |                                            |        @@@@         @@@@
+   | Website:      https://opnsense.org/        |         @@@\\\   ///@@@
+   | Handbook:     https://docs.opnsense.org/   |       ))))))))   ((((((((
+   | Forums:       https://forum.opnsense.org/  |         @@@///   \\\@@@
+   | Lists:        https://lists.opnsense.org/  |        @@@@         @@@@
+   | Code:         https://github.com/opnsense  |         @@@@@@@@@@@@@@@
+   ----------------------------------------------
+   *** OPN1.localdomain: OPNsense 19.1.4 (amd64/OpenSSL) ***
+   LAN (vtnet0)    -> v4: 10.0.1.6/24
+   WAN (vtnet1)    -> v4: 192.168.24.24/28
+
+   HTTPS: SHA256 19 A8 83 86 42 4E 75 3C DC 0D AB C0 6F BC 54 91
+                 22 ED E8 BB A1 B1 85 E3 A1 80 E5 15 89 9C 99 BC
+   SSH:   SHA256 HpmbGXeyvNKd7Hyc4sx+FTR6pL0wytIIVAWDuVrDZMc (ECDSA)
+   SSH:   SHA256 p0KjpBlqupzqBXOMot0beFKHKx2EJNgkabxl14CVCZ8 (ED25519)
+   SSH:   SHA256 xvRzsU1SjclG9TxiV8D6dsWSUvSx7b5QDn25Y3n2e+U (RSA)
+
+    0) Logout                              7) Ping host
+    1) Assign interfaces                   8) Shell
+    2) Set interface IP address            9) pfTop
+    3) Reset the root password            10) Firewall log
+    4) Reset to factory defaults          11) Reload all services
+    5) Power off system                   12) Update from console
+    6) Reboot system                      13) Restore a backup
+   Enter an option:
+   ```  
+1. Select option 1 to assign the interfaces
+   * WAN is for the interface with internet connection
+   * LAN is for the interface with internal network
+
+1. Select option 2 to set IP addresses for the interfaces
+   * WAN : 192.168.24.24/28 or Public IP address
+   * LAN : 10.0.1.6/24
+
+1. Access the web GUI of the firewall using its IP address to complete the installation setup
+   * Installation wizard will prompt when you first enter the web GUI
+   * Unchecked "Block private networks" option on WAN interface setting
+   * Unchecked "Block bogon networks" option on WAN interface setting
+
+1. To enable port forwarding on the firewall:
+   * Navigate to Firewall >> Settings >> Advanced
+   * Checked "Reflection for port forwards" option
+   * Checked "Automatic outbound NAT for Reflection" option  
+
+To use the firewall to route internet to the other VMs, go to the network config of the VMs and set gateway as the firewall. Subsequently, the VMs will be able to access the internet through the firewall.
+
+### CARP Setup using only 1 public IP
+The following details the steps taken to create a CARP set up using 1 public IP instead of the conventional 3 public IPs:   
+1. Set up both Firewall WAN interface with a dummy IP address
+
+1. Create CARP for WAN interface
+   * Using any one of the Firewall(1), navigate to  Firewall >> Virtual IPs >> Settings
+   * click on the "Add" button
+   * For Mode, select "CARP"
+   * For Interface, select "WAN"
+   * For Address, key in the public IP address you want to use
+   * For Virtual IP Password, set your own password
+   * For VHID Group, select a vhid which you want to use
+   * For Advertising Frequency, Base: 1 Skew: 0
+   * For Description, enter the description for the CARP
+   * Select save option, and CARP will be created
+
+1. Create CARP for LAN interface
+   * Repeat step 2
+   * Change Interface to "LAN"
+   * Change Address to a LAN IP you want to use
+
+1. Set up HA synchronization on Firewall(1)
+   * On Firewall(1), navigate to System >> High Availability >> Settings
+   * Checked "Synchronize States" option
+   * For Synchronize Interface, select "LAN" (not enough network interface, ideally to have a separate network for synchronization)
+   * For Synchronize Peer IP, select the LAN IP of the other Firewall(2)
+   * For Synchronize Config to IP, select the other Firewall(2) LAN IP also
+   * For Remote System options, key in the username and password of the other Firewall(2) `root` account
+   * Checked all the synchronize options boxes
+   * Save settings and wait for the data to synchronize
+
+1. Enable HA synchronization on Firewall(2)
+   * On Firewall(2), navigate to System >> High Availability >> Settings
+   * Checked Synchronize States option
+   * For Synchronize Interface, select "LAN"
+   * Save settings
+
+1. Check the CARP status on both Firewall
+   * Navigate to Firewall >> Virtual IPs >> Status
+   * Firewall(1) will show "master" status
+   * Firewall(2) will show "backup" status
+
+1. CARP has been successfully set up
+   * conduct testing on CARP by shutting down Master Firewall(1)
+   * connection will be routed through Backup Firewall(2)
+
+Done! HA has been successfully set up on Firewall.   
 
 ---
 ## 3. Multi-Master Kubernetes Cluster

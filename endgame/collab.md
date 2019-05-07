@@ -1,5 +1,5 @@
 # Prototype Molly
-We are to provision an operational Kubernetes Cluster using 5 servers:
+We are to provision an operational Kubernetes (k8s) Cluster using 5 servers:
 |   Server Name   |   CPU Cores   |   RAM (GiB)   |   Hard Disks   |
 |---|---|---|---|
 |   pve0   |   6   |   32   |   4 x 1.8TiB   |
@@ -8,7 +8,8 @@ We are to provision an operational Kubernetes Cluster using 5 servers:
 |   pve3   |   6   |   32   |   3 x 1.8TiB   |
 |   pve4   |   6   |   32   |   4 x 1.8TiB   |
 
-## 1. Proxmox VE Installation
+## 1. Base Server Setup
+Install Proxmox VE v5.4 on all 5 servers. You can use a flashed a USB thumb drive with the Proxmox image. We set up zfs RAID 1 using 2 hard disks on each server. For our servers, we have to change bootup mode and SATA config to legacy in order for zfs RAID to setup successfully. The Remaining 9 hard disks are used to set up Ceph. Ceph storage are to be used for the provisioning of Debian9.8 virtual machines. CephFS will also be set up to mount volume shares into k8s pods.
 
 ---
 ## 2. Internet Access Provisioning

@@ -1,5 +1,6 @@
 # Prototype Molly
 We are to provision an operational Kubernetes (k8s) Cluster using 5 servers:
+
 |   Server Name   |   CPU Cores   |   RAM (GiB)   |   Hard Disks   |
 |---|---|---|---|
 |   pve0   |   6   |   32   |   4 x 1.8TiB   |

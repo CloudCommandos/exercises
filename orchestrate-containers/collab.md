@@ -1129,6 +1129,48 @@ Deploy the HPA
 ```bash
 kubectl apply -f deployHPA.yml
 ```
+## Pod Eviction  
+Pods will respawn/migrate itself when the node is detected by kubernetes to be down. The following are the conditions which determines the total eviction timing of the pod:  
+- Node status update frequency (default: 10sec)
+- Node monitor period (default: 5sec)
+- Node monitor grace period (default: 40sec)
+- Pod eviction timeout (default: 5min)   
+
+With the default settings, in the event of a node failure, the pods running on the node will take approximately 5mins to migrate over to another running node. For some critical setups whereby the service cannot afford to be down for such a long period of time, it is very important that the migration time is reduce to a suitable level.  
+
+### Procedure
+The following documents the steps taken to reduce the migration time of the pods to approximately 1min:  
+1. edit the `/etc/kubernetes/manifests/kube-controller-manager.yaml` file on the master node to include the following commands:
+    - --feature-gates=TaintBasedEvictions=false
+    - --pod-eviction-timeout=60s
+    - --node-monitor-period=2s
+    - --node-monitor-grace-period=16s  
+
+   What you expect to see:
+    ```bash
+    spec:
+      containers:
+      - command:
+        - kube-controller-manager
+        - --feature-gates=TaintBasedEvictions=false     #This will allow the editing of the migration time
+        - --pod-eviction-timeout=60s                    #Time taken for the pods to be removed from the fail node
+        - --node-monitor-period=2s                  
+        - --node-monitor-grace-period=16s           
+        - --address=127.0.0.1
+        - --allocate-node-cidrs=true
+    ```  
+2. edit the `/var/lib/kubelet/kubeadm-flags.env` file on all the nodes in the cluster to include the following line:  
+     - --node-status-update-frequency=4s #Update frequency for the status of the node to the master
+
+    What you expect to see:  
+    ```bash
+    KUBELET_KUBEADM_ARGS=--cgroup-driver=cgroupfs --network-plugin=cni --pod-infra-container-image=k8s.gcr.io/pause:3.1 --node-status-update-frequency=4s
+    ```  
+3. Run `systemctl restart docker` on the master node.  
+
+4. Run `systemctl retart kubelet` on all the nodes in the cluster.  
+
+With this setup, it will take around 16secs for the master to deem the node unhealthy/unready and 1min for the pods in the failed node to be migrated to another node.
 
 ## Ansible scripts
 There are a few basic setup that needs to be done on the VMs and also the Ansible host machine before proceeding on to use the scripts:
@@ -1176,4 +1218,8 @@ Another method known as tagging can be used to run all the Ansible scripts or ju
 The tag can then be specify in the command to only run the specfic script. An example of the command can be seen below:
 ```bash
 ansible-playbook -i host_deploy site-config.yaml --tags kube_basic
+```
+or the `--skip-tags` command can be use instead to skip a specific task:  
+```bash
+ansible-playbook -i host_deploy site-config.yaml --skip-tags kube_basic
 ```

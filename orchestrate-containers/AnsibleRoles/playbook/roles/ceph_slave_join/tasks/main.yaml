@@ -6,7 +6,7 @@
       changed_when: False
 
     - name: Copy config files and keys to slave node
-      shell: "ceph-deploy admin {{item}}"
+      shell: "ceph-deploy --overwrite-conf admin {{item}}"
       loop: "{{Slaves}}"
       args:
         chdir: ~/my-ceph

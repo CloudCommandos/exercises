@@ -25,6 +25,46 @@
         insertafter: '    - kube-apiserver'
         line: '    - --service-node-port-range=80-32767'
 
+    - name: Add the host url/IP into the ingress file
+      lineinfile:
+        path: /kubernetes/testApp/deployIngress.yml
+        regexp: '  - host: subdomain1.commandocloudlet.com'
+        line: '  - host: {{WordURL}}'
+
+    - name: Commenting away the default ceph monitor ip in deployWordPress.yml & deployMariaDB$
+      replace:
+        path: "{{item}}"
+        regexp: '(^(?!#).*- 10.142.*)'
+        replace: '#\1'
+      loop:
+        - /kubernetes/testApp/deployWordPress.yml
+        - /kubernetes/testApp/deployMariaDB.yml
+
+    - name: Check if ceph monitor ip has already been added to deployWordPress.yml file
+      shell: cat /kubernetes/testApp/deployWordPress.yml
+      register: WordPressFileData
+      changed_when: False
+
+    - name: Check if ceph monitor ip has already been added to deployMariaDB.yml file
+      shell: cat /kubernetes/testApp/deployMariaDB.yml
+      register: MariaDBFileData
+      changed_when: False
+
+    - name: Add the IP address of Ceph monitor into the deployWordPress.yml file
+      lineinfile:
+        path: /kubernetes/testApp/deployWordPress.yml
+        insertafter: '          monitors:'
+        line: '          - {{item}}'
+      when: WordPressFileData.stdout.find(item) == -1
+      loop: "{{MonIP}}"
+
+    - name: Add the IP address of Ceph monitor into the deployMariaDB.yml file
+      lineinfile:        path: /kubernetes/testApp/deployMariaDB.yml
+        insertafter: '          monitors:'
+        line: '            - {{item}}'
+      when: MariaDBFileData.stdout.find(item) == -1
+      loop: "{{MonIP}}"
+
     - name: Add the Prometheus url into the ingress file
       lineinfile:
         path: /kubernetes/prometheus/deployIngressPGA.yaml

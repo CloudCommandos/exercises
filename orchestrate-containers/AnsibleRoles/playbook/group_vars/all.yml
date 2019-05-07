@@ -7,6 +7,13 @@ MasterPriIP: 192.168.100.100
 # CEPH VARIABLES
 # The IP network used for the setup of the cluster and ceph.
 NetIP: 192.168.100.0/24
+
+MonIP:
+   - 192.168.100.100:6789
+   - 192.168.100.101:6789
+   - 192.168.100.102:6789
+   - 192.168.100.103:6789
+
 # The hostname of master node.
 MasterHostname: master
 # The hostname of all the slaves in the cluster. (Comment away if dont need)
@@ -23,6 +30,9 @@ Prometheus: prom.com
 Grafana: graf.com
 Alertmanager: alertman.com
 Kibana: kib.com
+
+# The URL for WordPress website.
+WordURL: wordpress.cloud.com
 
 # The password for MariaDB & WordPress
 MariaPass: 12345

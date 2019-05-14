@@ -1,6 +1,8 @@
 # Prototype Molly
 We are to provision an operational Kubernetes (k8s) Cluster using 5 servers:
 
+##### Server Hardware Specifications
+
 |   Server Name   |   CPU Cores   |   RAM (GiB)   |   Hard Disks   |
 |---|---|---|---|
 |   pve0   |   6   |   32   |   4 x 1.8TiB   |
@@ -8,6 +10,17 @@ We are to provision an operational Kubernetes (k8s) Cluster using 5 servers:
 |   pve2   |   6   |   32   |   4 x 1.8TiB   |
 |   pve3   |   6   |   32   |   3 x 1.8TiB   |
 |   pve4   |   6   |   32   |   4 x 1.8TiB   |
+
+##### Server Network Port Assignment
+
+|Server| Port 1| Port 2| Port 3|
+|---|---|---|---|
+|pve0| Out-of-band Management (OOB)| Internal network (LAN)| Internet (WAN)|
+|pve1| Out-of-band Management (OOB)| Internal network (LAN)| Internet (WAN)|
+|pve2| Out-of-band Management (OOB)| Internal network (LAN)| OOB Network|
+|pve3| Out-of-band Management (OOB)| Internal network (LAN)| OOB Network|
+|pve4| Out-of-band Management (OOB)| Internal network (LAN)| Not in use|
+
 
 ---
 ## Base Server Setup
@@ -308,19 +321,19 @@ CephFS is a convenient way to share files between servers and VMs. It is a mount
 
 Proxmox VE v5.4 offers an intuitive and convenient way to set up CephFS. On the Proxmox web GUI, select one of the nodes then navigate the menu bar to 'CephFS' under 'Ceph'. Click on the 'Create CephFS' button to initialize CephFS with two auto-created pools. Then create one MDS (Metadata Server) for each node using the 'Create MDS' button. Assume the following setup for CephFS:
 
-* CephFS
-  |   Name   |   Data Pool   |   Metadata Pool   |
-  | --- | --- | --- |
-  |   cephfs   |   cephfs_data   |   cephfs_metadata   |
+##### CephFS  
+|   Name   |   Data Pool   |   Metadata Pool   |
+| --- | --- | --- |
+|   cephfs   |   cephfs_data   |   cephfs_metadata   |
 
-* MDS
+##### MDS  
   |   Name   |   Host   |   Address   |
   | --- | --- | --- |
-  |   pve0   |   pve0   |   10.0.1.10:\<auto-assigned port>/******   |
-  |   pve1   |   pve1   |   10.0.1.11:\<auto-assigned port>/******   |
-  |   pve2   |   pve2   |   10.0.1.12:\<auto-assigned port>/******   |
-  |   pve3   |   pve3   |   10.0.1.13:\<auto-assigned port>/******   |
-  |   pve4   |   pve4   |   10.0.1.14:\<auto-assigned port>/******   |
+  |   pve0   |   pve0   |   10.0.1.10:[auto-assigned port]/*******   |
+  |   pve1   |   pve1   |   10.0.1.11:[auto-assigned port]/*******   |
+  |   pve2   |   pve2   |   10.0.1.12:[auto-assigned port]/*******   |
+  |   pve3   |   pve3   |   10.0.1.13:[auto-assigned port]/*******   |
+  |   pve4   |   pve4   |   10.0.1.14:[auto-assigned port]/*******   |
 
 ### AutoFS to mount CephFS
 We want to mount CephFS on our servers to conveniently distribute our project resources across VMs and Servers. If we mount CephFS through /etc/fstab for our servers, the result would be catastrophic since CephFS requires Ceph and that Ceph requires enough quorom to function properly. Since our servers are also the hosts of CephFS, mounting CephFS on bootup would fail since quorom will only be established after the bootup. Therefore we should use AutoFS to mount CephFS only on demand (which is only possible after the bootup).

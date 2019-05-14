@@ -9,11 +9,12 @@ We are to provision an operational Kubernetes (k8s) Cluster using 5 servers:
 |   pve3   |   6   |   32   |   3 x 1.8TiB   |
 |   pve4   |   6   |   32   |   4 x 1.8TiB   |
 
-## 1. Base Server Setup
+---
+## Base Server Setup
 Install Proxmox VE v5.4 on all 5 servers. You can use a flashed a USB thumb drive with the Proxmox image. We set up zfs RAID 1 using 2 hard disks on each server. For our servers, we have to change bootup mode and SATA config to legacy in order for zfs RAID to setup successfully. The Remaining 9 hard disks are used to set up Ceph. Ceph storage are to be used for the provisioning of Debian9.8 virtual machines. CephFS will also be set up to mount volume shares into k8s pods.
 
 ---
-## 2. Internet Access Provisioning
+## Internet Access Provisioning
 We will set up pve0 & pve1 with connection to the internet, but only 1 server will be connected to the internet at one time. The traffic in and out of the Proxmox cluster will be monitor by the firewall VM created in the cluster. We decided to go with OPNsense for our firewall because of its intuitive and user-friendly webGUI interface. The setup is as such:
 
 |   Interfaces   |   Firewall 1(pve0)   |   Firewall 2(pve1)   |   CARP/Comment   |
@@ -137,7 +138,7 @@ The following details the steps taken to create a CARP set up using 1 public IP 
 Done! HA has been successfully set up on Firewall.   
 
 ---
-## 3. Multi-Master Kubernetes Cluster
+## Multi-Master Kubernetes Cluster
 We will set up a multi-master K8s cluster with 3 master nodes and 5 worker nodes.
 The setup is as such:   
 
@@ -200,6 +201,10 @@ controlPlaneEndpoint: "10.0.1.99:60443"
 The `10.0.1.99` is a Virtual IP that should refer to all our master nodes collectively. To implement load balancing with this Virtual IP, we can use HAProxy and Heartbeat.
 
 HAProxy is to implement port forwarding with endpoint health checks to load balance traffic among the master nodes. We will need more than one HAProxy running for high availability. For our setup we will be running HAProxy on each of our master nodes.
+Install HAProxy
+```bash
+sudo apt-get install haproxy
+```
 Add the following to the end of `/etc/haproxy/haproxy.cfg`:
 ```yaml
 frontend k8s-haproxy
@@ -296,6 +301,66 @@ Restart all Heartbeat services
 ```bash
 sudo systemctl restart heartbeat
 ```
+
+---
+## Set Up CephFS
+CephFS is a convenient way to share files between servers and VMs. It is a mountable file system of Ceph. Containers can also use CephFS as mountable volume for data sharing or to make file changes dynamically from outside the container environment.
+
+Proxmox VE v5.4 offers an intuitive and convenient way to set up CephFS. On the Proxmox web GUI, select one of the nodes then navigate the menu bar to 'CephFS' under 'Ceph'. Click on the 'Create CephFS' button to initialize CephFS with two auto-created pools. Then create one MDS (Metadata Server) for each node using the 'Create MDS' button. Assume the following setup for CephFS:
+
+* CephFS
+  |   Name   |   Data Pool   |   Metadata Pool   |
+  | --- | --- | --- |
+  |   cephfs   |   cephfs_data   |   cephfs_metadata   |
+
+* MDS
+  |   Name   |   Host   |   Address   |
+  | --- | --- | --- |
+  |   pve0   |   pve0   |   10.0.1.10:\<auto-assigned port>/******   |
+  |   pve1   |   pve1   |   10.0.1.11:\<auto-assigned port>/******   |
+  |   pve2   |   pve2   |   10.0.1.12:\<auto-assigned port>/******   |
+  |   pve3   |   pve3   |   10.0.1.13:\<auto-assigned port>/******   |
+  |   pve4   |   pve4   |   10.0.1.14:\<auto-assigned port>/******   |
+
+### AutoFS to mount CephFS
+We want to mount CephFS on our servers to conveniently distribute our project resources across VMs and Servers. If we mount CephFS through /etc/fstab for our servers, the result would be catastrophic since CephFS requires Ceph and that Ceph requires enough quorom to function properly. Since our servers are also the hosts of CephFS, mounting CephFS on bootup would fail since quorom will only be established after the bootup. Therefore we should use AutoFS to mount CephFS only on demand (which is only possible after the bootup).
+
+#### On each of your servers:  
+Use root account
+```bash
+su -
+```
+Extract the admin key of CephFS and save it into `/root/secrets/cephfs.key`
+```bash
+ceph auth get client.admin #copy the key from the output of this command
+mkdir /root/secrets
+nano /root/secrets/cephfs.key #paste the key inside this file
+chmod -R 770 /root/secrets
+```
+
+Install AutoFS
+```bash
+sudo apt-get autofs
+```
+
+Add the following into `/etc/auto.master`
+```yaml
+/mnt    /etc/auto.cephfs  --timeout 60
+```
+
+Create the file `/etc/auto.cephfs` with the following contents:
+```yaml
+shares  -fstype=ceph,name=admin,secretfile=/root/secrets/cephfs.key,noatime             10.0.1.10:6789:/
+```
+The 'noatime' option tells CephFS not to save access time information of the mounted file system. This is to improve performance by preventing unnecessary write operations when files are read. Change the `10.0.1.10` ip address to the corresponding server's ip address accordingly.
+
+Change directory to `/mnt/shares` to trigger the mount
+```bash
+cd /mnt/shares
+```
+
+For standardization, we also set up AutoFS to mount CephFS onto our VMs.
+
 
 Useful Links:  
 * [Configuring HA Kubernetes Cluster](https://medium.com/faun/configuring-ha-kubernetes-cluster-on-bare-metal-servers-with-kubeadm-1-2-1e79f0f7857b)

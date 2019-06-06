@@ -377,3 +377,73 @@ For standardization, we also set up AutoFS to mount CephFS onto our VMs.
 
 Useful Links:  
 * [Configuring HA Kubernetes Cluster](https://medium.com/faun/configuring-ha-kubernetes-cluster-on-bare-metal-servers-with-kubeadm-1-2-1e79f0f7857b)
+
+---
+## Enable Monitoring on OPNsense
+Monitoring of the kubernetes cluster can be done by deploying the prometheus-operator. However, the OPNsense VMs are outside of the kubernetes cluster. Thus, to allow monitoring on the OPNsense VMs, some configurations have to be done. OPNsense has a plugins feature and node exporter is available for installation on the machine.
+
+To install node exporter plugins on OPNsense, access the web interface and log in as root user.
+The plugins option can be found under **System > Firmware > Plugins**. Search for `os-node-exporter` and install it. Once installed, reboot the machine.
+
+Node exporter will now be available on the web interface under **Services**. Look for **Prometheus Exporter** and enable it. The Listen Address was set to the LAN IP address of the respective firewall LAN IP address, which is `10.0.1.6` and `10.0.1.7`. By default, the Listen Address is `0.0.0.0(all interfaces)`.
+
+Once the Prometheus Exporter is enabled, node exporter will start to export the host machine metrics. To verify that node exporter is working, access any machine within the LAN network and type `curl http://ip.add.re.ss:9100/metrics`. In this case, to verify the node exporter is working on the OPNsense VMs, simply enter `curl http://10.0.1.6:9100/metrics` for firewall 1 and `curl http://10.0.1.7:9100/metrics` for firewall 2.
+
+An example of the output of the command is as shown below:
+```
+# HELP go_gc_duration_seconds A summary of the GC invocation durations.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 6.5231e-05
+go_gc_duration_seconds{quantile="0.25"} 6.5231e-05
+go_gc_duration_seconds{quantile="0.5"} 8.886e-05
+...
+```
+
+The metrics of the OPNsense VMs is now ready to be scraped. In order for prometheus-operator to scrape from the OPNsense VMs, additional configuration is required. The instruction is available on the prometheus-operator [Github Page](https://github.com/coreos/prometheus-operator/blob/master/Documentation/additional-scrape-config.md).
+
+Create an yaml file and name it as `prometheus-additional.yaml`. The following configuration was used to scrap the metrics from our OPNsense VMs.
+```
+- job_name: "firewall-node-exporter"
+  static_configs:
+          - targets: ["10.0.1.6:9100", "10.0.1.7:9100"]
+            labels:
+               namespace: "monitoring"
+               service: "node-exporter"
+```
+
+Targets refer to the IP address and port of the machine that prometheus will scrape the metrics from. Additional labels can be added in as well.
+
+Next, create a secret with the `prometheus-additional.yaml` with the following command.
+
+Note: namespace is set as `monitoring` because prometheus-operator is deployed under namespace `monitoring`.
+```
+kubectl create secret generic additional-scrape-configs --from-file=prometheus-additional.yaml --dry-run -oyaml --namespace=monitoring > additional-scrape-configs.yaml
+```
+
+`prometheus-additional.yaml` will be base64 encoded and input into a secret config file `additional-scrape-configs.yaml`
+As shown below is the `additional-scrape-configs.yaml` created by the `prometheus-additional.yaml`.
+```
+apiVersion: v1
+data:
+  prometheus-additional.yaml: LSBqb2JfbmFtZTogImZpcmV3YWxsLW5vZGUtZXhwb3J0ZXIiCiAgc3RhdGljX2NvbmZpZ3M6CiAgICAgICAgICAtIHRhcmdldHM6IFsiMTAuMC4xLjY6OTEwMCIsICIxMC4wLjEuNzo5MTAwIl0KICAgICAgICAgICAgbGFiZWxzOgogICAgICAgICAgICAgICBuYW1lc3BhY2U6ICJtb25pdG9yaW5nIgogICAgICAgICAgICAgICBzZXJ2aWNlOiAibm9kZS1leHBvcnRlciIK
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: additional-scrape-configs
+  namespace: monitoring   
+  ```
+To check if the encoded text is the same as the `prometheus-additional.yaml`, the following command can be used to verify.
+```
+ echo "encoded text" | base64 --decode
+```
+
+Lastly, edit the `prometheus-prometheus.yaml` under the manifests folder of prometheus-operator folder and add in the following to the `spec` section.
+```
+additionalScrapeConfigs:
+  name: additional-scrape-configs
+  key: prometheus-additional.yaml
+```
+
+Now deploy prometheus manifests folder and access the prometheus web interface. On the web interface, navigate to **Status > Targets**. firewall-node-exporter, the job_name for scraping from OPNsense VMs should be shown.
+
+---

@@ -447,3 +447,53 @@ additionalScrapeConfigs:
 Now deploy prometheus manifests folder and access the prometheus web interface. On the web interface, navigate to **Status > Targets**. firewall-node-exporter, the job_name for scraping from OPNsense VMs should be shown.
 
 ---
+
+## Creating Alerting Rule on Prometheus
+The existing prometheus alerting rules does not include rules for OPNsense VMs. Prometheus will monitoring the specified alerting rules and trigger the alert if the condition of the rule is met. The alert will then be fired to Alertmanager, which will then send out notification to the user.
+
+The existing rules from prometheus-operator can be found in `prometheus-rules.yaml` under the manifests folder. Simply add on additional alerting rules in the yaml file under `spec >  group`
+The following alerting rules were added to `prometheus-rules.yaml` to trigger alerts for external nodes outside of the kubernetes cluster.
+
+```
+- name: external-node
+  rules:    
+  - alert: InstanceDown
+    expr: up == 0
+    for: 3m
+    labels:
+      severity: critical
+    annotations:        
+      summary: "Instance {{ $labels.instance }} down"
+      description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 3 minutes."
+  - alert: CPUThresholdExceeded
+    expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{job="firewall-node-exporter",mode="idle"}[5m])) * 100) > 90
+    for: 3m
+    labels:
+      severity: critical
+    annotations:        
+      summary: "Instance {{ $labels.instance }} CPU usage is dangerously high"
+      description: "This device's CPU usage has exceeded the thresold of 90% with a value of {{ $value }} for 3 minutes."
+  - alert: MemoryUsageWarning
+    expr:  ((node_memory_size_bytes - (node_memory_free_bytes + node_memory_cache_bytes + node_memory_buffer_bytes) ) / node_memory_size_bytes) * 100  > 80
+    for: 5m
+    labels:
+      severity: warning
+    annotations:        
+      summary: "Instance {{ $labels.instance }} Memory usage is high"
+      description: "This device's Memory usage has exceeded the thresold of 80% with a value of {{ $value }} for 5 minutes."
+```
+Note: The alerting rule for MemoryUsageWarning has a different expr as the metrics exposed are from FreeBSD, which is the OS for OPNsense. FreeBSD is a Unix-like Platform. Thus, the naming of the metrics is slightly different compared to Linux platform. A typical expr for high memory usage on a Linux platform is `(((node_memory_MemTotal - node_memory_MemFree - node_memory_Cached) / (node_memory_MemTotal) * 100))`
+
+Add-on: Instruction on integrating Slack with Alertmanager can be found [here](https://github.com/CloudCommandos/Raspclouds/blob/master/My-Doc/kubernetes.md). The alerts will be forward to Slack when prometheus fires to Alertmanager.
+
+---
+## Additional Dashboard On Grafana
+With the existing configurations of prometheus-operator, Grafana already have dashboards available to present a better visualization on monitoring prometheus data. To add on more dashboard on Grafana, you can either create your own or import existing dashboard from [Grafana site](https://grafana.com/dashboards).  
+
+In order to have a dashboard to monitoring the OPNsense VMs, we need to find a dashboard that can read FreeBSD metrics. Click [here](https://grafana.com/dashboards/4260) to download the dashboard to monitor the OPNsense VMs. A slight amendment on the json file for the dashboard is required to direct its path to the job name of our OPNsense VMs.
+
+Open up the json file and search for the word `job` and replace the job variable:
+```
+"query": "label_values(node_time_seconds{job=\"firewall-node-exporter\"}, instance)",
+```
+This is to direct the query to the **job_name** which we have specified in `prometheus-additional.yaml`.  Once this is done, the dashboard to monitor OPNsense should be ready.

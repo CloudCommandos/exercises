@@ -505,29 +505,37 @@ It is a tedious process to go through the installation setup and also having to 
 The following details the steps taken to create a cloud-init image template of a distribution to be use for the deployment of VMs. All the commands will be run on the Proxmox node where the template will reside:  
 
 1. Search for a certified cloud-init image of the distribution(OS) and use `wget` function to download it on to the Proxmox node
-   * `wget https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img`
-
+   ```
+   wget https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img
+   ```
 1. Create a new VM which will eventually be converted into a template (for this setup guide, VM with ID number 9000 is used)
-   * `qm create 9000 --memory 2048 --net0 virtio,bridge=vmbr0`
-
+   ```
+   qm create 9000 --memory 2048 --net0 virtio,bridge=vmbr0
+   ```
 1. Import the downloaded cloud image to the local storage
-   * `qm importdisk 9000 bionic-server-cloudimg-amd64.img local-zfs`
-
+   ```
+   qm importdisk 9000 bionic-server-cloudimg-amd64.img local-zfs
+   ```
 1. Attached the new disk to the VM as scsi drive
-   * `qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-zfs:vm-9000-disk-0`
-
+   ```
+   qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-zfs:vm-9000-disk-0
+   ```
 1. Configure a CDROM drive to pass the cloud-init data to the VM
-   * `qm set 9000 --ide2 local-zfs:cloudinit`
-
+   ```
+   qm set 9000 --ide2 local-zfs:cloudinit
+   ```
 1. Speed up the booting process by setting the boot parameters of the VM to boot directly from the Cloud-Init image
-   * `qm set 9000 --boot c --bootdisk scsi0`
-
+   ```
+   qm set 9000 --boot c --bootdisk scsi0
+   ```
 1. Configure a serial console to be use as a display. This step is required because most cloud-init images rely on this to work
-   * `qm set 9000 --serial0 socket --vga serial0`
-
+   ```
+   qm set 9000 --serial0 socket --vga serial0
+   ```
 1. Convert the VM into a template
-   * `qm template 9000`
-
+   ```
+   qm template 9000
+   ```
 At this point, the template of the cloud-init image will be created. The template will appear on the Proxmox GUI under the corresponding node which the above setup is run on. Next is to use the template to deploy VM in the Proxmox cluster.  
 
 Run the following steps on the Proxmox GUI:  

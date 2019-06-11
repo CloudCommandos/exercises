@@ -497,3 +497,49 @@ Open up the json file and search for the word `job` and replace the job variable
 "query": "label_values(node_time_seconds{job=\"firewall-node-exporter\"}, instance)",
 ```
 This is to direct the query to the **job_name** which we have specified in `prometheus-additional.yaml`.  Once this is done, the dashboard to monitor OPNsense should be ready.
+
+---
+## Cloud Image Template setup
+It is a tedious process to go through the installation setup and also having to log in to the VM to create user accounts when deploying new VMs. Cloud-init images is able to eliminate these problems by providing the function of creating user accounts on bootup based on user input.  
+
+The following details the steps taken to create a cloud-init image template of a distribution to be use for the deployment of VMs. All the commands will be run on the Proxmox node where the template will reside:  
+
+1. Search for a certified cloud-init image of the distribution(OS) and use `wget` function to download it on to the Proxmox node
+   * `wget https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img`
+
+1. Create a new VM which will eventually be converted into a template (for this setup guide, VM with ID number 9000 is used)
+   * `qm create 9000 --memory 2048 --net0 virtio,bridge=vmbr0`
+
+1. Import the downloaded cloud image to the local storage
+   * `qm importdisk 9000 bionic-server-cloudimg-amd64.img local-zfs`
+
+1. Attached the new disk to the VM as scsi drive
+   * `qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-zfs:vm-9000-disk-0`
+
+1. Configure a CDROM drive to pass the cloud-init data to the VM
+   * `qm set 9000 --ide2 local-zfs:cloudinit`
+
+1. Speed up the booting process by setting the boot parameters of the VM to boot directly from the Cloud-Init image
+   * `qm set 9000 --boot c --bootdisk scsi0`
+
+1. Configure a serial console to be use as a display. This step is required because most cloud-init images rely on this to work
+   * `qm set 9000 --serial0 socket --vga serial0`
+
+1. Convert the VM into a template
+   * `qm template 9000`
+
+At this point, the template of the cloud-init image will be created. The template will appear on the Proxmox GUI under the corresponding node which the above setup is run on. Next is to use the template to deploy VM in the Proxmox cluster.  
+
+Run the following steps on the Proxmox GUI:  
+
+1. `Right-click` on the template and select the `clone` function to deploy a new VM
+
+1. Once the VM is successfully cloned, navigate to the VM's `cloud-init` tab and fill in the necessary information for the creation of a User account
+
+1. Boot up the VM and it will be ready for use with the User account created
+
+Do take note that the password function will not work for Debian cloud image, therefore the workaround is to fill in the SSH public key segment using the Proxmox node's public key and subsequently `ssh` into the VM to create a password for the User.  
+
+Nameserver also has to be added manually into `/etc/resolv.conf` file for the Debian cloud image. Add `nameserver 8.8.8.8` into the file so that the VM will be able to access the internet.  
+
+---

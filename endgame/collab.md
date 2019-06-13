@@ -512,7 +512,7 @@ The following details the steps taken to create a cloud-init image template of a
    ```
    qm create 9000 --memory 2048 --net0 virtio,bridge=vmbr0
    ```
-1. Import the downloaded cloud image to the local storage
+1. Import the downloaded cloud image to the local storage or shared storage
    ```
    qm importdisk 9000 bionic-server-cloudimg-amd64.img local-zfs
    ```
@@ -520,7 +520,7 @@ The following details the steps taken to create a cloud-init image template of a
    ```
    qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-zfs:vm-9000-disk-0
    ```
-1. Configure a CDROM drive to pass the cloud-init data to the VM
+1. Configure a local CDROM drive to pass the cloud-init data to the VM
    ```
    qm set 9000 --ide2 local-zfs:cloudinit
    ```
@@ -541,6 +541,8 @@ At this point, the template of the cloud-init image will be created. The templat
 Run the following steps on the Proxmox GUI:  
 
 1. `Right-click` on the template and select the `clone` function to deploy a new VM
+
+1. For migration to work on VM, select `full-clone` function instead of `linked-clone` function
 
 1. Once the VM is successfully cloned, navigate to the VM's `cloud-init` tab and fill in the necessary information for the creation of a User account
 

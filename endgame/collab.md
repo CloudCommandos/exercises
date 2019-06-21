@@ -402,7 +402,7 @@ go_gc_duration_seconds{quantile="0.5"} 8.886e-05
 The metrics of the OPNsense VMs is now ready to be scraped. In order for prometheus-operator to scrape from the OPNsense VMs, additional configuration is required. The instruction is available on the prometheus-operator [Github Page](https://github.com/coreos/prometheus-operator/blob/master/Documentation/additional-scrape-config.md).
 
 Create an yaml file and name it as `prometheus-additional.yaml`. The following configuration was used to scrap the metrics from our OPNsense VMs.
-```
+```yaml
 - job_name: "firewall-node-exporter"
   static_configs:
           - targets: ["10.0.1.6:9100", "10.0.1.7:9100"]
@@ -422,7 +422,7 @@ kubectl create secret generic additional-scrape-configs --from-file=prometheus-a
 
 `prometheus-additional.yaml` will be base64 encoded and input into a secret config file `additional-scrape-configs.yaml`
 As shown below is the `additional-scrape-configs.yaml` created by the `prometheus-additional.yaml`.
-```
+```yaml
 apiVersion: v1
 data:
   prometheus-additional.yaml: LSBqb2JfbmFtZTogImZpcmV3YWxsLW5vZGUtZXhwb3J0ZXIiCiAgc3RhdGljX2NvbmZpZ3M6CiAgICAgICAgICAtIHRhcmdldHM6IFsiMTAuMC4xLjY6OTEwMCIsICIxMC4wLjEuNzo5MTAwIl0KICAgICAgICAgICAgbGFiZWxzOgogICAgICAgICAgICAgICBuYW1lc3BhY2U6ICJtb25pdG9yaW5nIgogICAgICAgICAgICAgICBzZXJ2aWNlOiAibm9kZS1leHBvcnRlciIK
@@ -438,7 +438,7 @@ To check if the encoded text is the same as the `prometheus-additional.yaml`, th
 ```
 
 Lastly, edit the `prometheus-prometheus.yaml` under the manifests folder of prometheus-operator folder and add in the following to the `spec` section.
-```
+```yaml
 additionalScrapeConfigs:
   name: additional-scrape-configs
   key: prometheus-additional.yaml
@@ -454,33 +454,39 @@ The existing prometheus alerting rules does not include rules for OPNsense VMs. 
 The existing rules from prometheus-operator can be found in `prometheus-rules.yaml` under the manifests folder. Simply add on additional alerting rules in the yaml file under `spec >  group`
 The following alerting rules were added to `prometheus-rules.yaml` to trigger alerts for external nodes outside of the kubernetes cluster.
 
-```
-- name: external-node
-  rules:    
-  - alert: InstanceDown
-    expr: up == 0
-    for: 3m
-    labels:
-      severity: critical
-    annotations:        
-      summary: "Instance {{ $labels.instance }} down"
-      description: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 3 minutes."
-  - alert: CPUThresholdExceeded
-    expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{job="firewall-node-exporter",mode="idle"}[5m])) * 100) > 90
-    for: 3m
-    labels:
-      severity: critical
-    annotations:        
-      summary: "Instance {{ $labels.instance }} CPU usage is dangerously high"
-      description: "This device's CPU usage has exceeded the thresold of 90% with a value of {{ $value }} for 3 minutes."
-  - alert: MemoryUsageWarning
-    expr:  ((node_memory_size_bytes - (node_memory_free_bytes + node_memory_cache_bytes + node_memory_buffer_bytes) ) / node_memory_size_bytes) * 100  > 80
-    for: 5m
-    labels:
-      severity: warning
-    annotations:        
-      summary: "Instance {{ $labels.instance }} Memory usage is high"
-      description: "This device's Memory usage has exceeded the thresold of 80% with a value of {{ $value }} for 5 minutes."
+```yaml
+- alert: InstanceDown
+  expr: up == 0
+  for: 1m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Instance {{ $labels.instance }} down"
+    message: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minutes."
+- alert: CPUThresholdExceeded
+  expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{job="firewall-node-exporter",mode="idle"}[5m])) * 100) > 90
+  for: 3m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Instance {{ $labels.instance }} CPU usage is dangerously high"
+    message: "This device's CPU usage has exceeded the thresold of 90% with a value of {{ $value }} for 3 minutes."
+- alert: MemoryUsageWarning
+  expr:  ((node_memory_size_bytes - (node_memory_free_bytes + node_memory_cache_bytes + node_memory_buffer_bytes) ) / node_memory_size_bytes) * 100  > 80
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Instance {{ $labels.instance }} Memory usage is high"
+    message: "This device's Memory usage has exceeded the thresold of 80% with a value of {{ $value }} for 5 minutes."
+- alert: DiskSpaceWarning
+  expr:  100 -  ((node_filesystem_free_bytes  * 100 / node_filesystem_size_bytes))  > 75
+  for: 60m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Instance {{ $labels.instance }} Disk usage is high"
+    message: "This device's Disk usage has exceeded the thresold of 75% with a value of {{ $value }}."
 ```
 Note: The alerting rule for MemoryUsageWarning has a different expr as the metrics exposed are from FreeBSD, which is the OS for OPNsense. FreeBSD is a Unix-like Platform. Thus, the naming of the metrics is slightly different compared to Linux platform. A typical expr for high memory usage on a Linux platform is `(((node_memory_MemTotal - node_memory_MemFree - node_memory_Cached) / (node_memory_MemTotal) * 100))`
 

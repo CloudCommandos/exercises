@@ -1,6 +1,8 @@
 # Prototype Molly
 We are to provision an operational Kubernetes (k8s) Cluster using 5 servers:
 
+##### Server Hardware Specifications
+
 |   Server Name   |   CPU Cores   |   RAM (GiB)   |   Hard Disks   |
 |---|---|---|---|
 |   pve0   |   6   |   32   |   4 x 1.8TiB   |
@@ -8,6 +10,17 @@ We are to provision an operational Kubernetes (k8s) Cluster using 5 servers:
 |   pve2   |   6   |   32   |   4 x 1.8TiB   |
 |   pve3   |   6   |   32   |   3 x 1.8TiB   |
 |   pve4   |   6   |   32   |   4 x 1.8TiB   |
+
+##### Server Network Port Assignment
+
+|Server| Port 1| Port 2| Port 3|
+|---|---|---|---|
+|pve0| Out-of-band Management (OOB)| Internal network (LAN)| Internet (WAN)|
+|pve1| Out-of-band Management (OOB)| Internal network (LAN)| Internet (WAN)|
+|pve2| Out-of-band Management (OOB)| Internal network (LAN)| OOB Network|
+|pve3| Out-of-band Management (OOB)| Internal network (LAN)| OOB Network|
+|pve4| Out-of-band Management (OOB)| Internal network (LAN)| Not in use|
+
 
 ---
 ## Base Server Setup
@@ -306,19 +319,19 @@ CephFS is a convenient way to share files between servers and VMs. It is a mount
 
 Proxmox VE v5.4 offers an intuitive and convenient way to set up CephFS. On the Proxmox web GUI, select one of the nodes then navigate the menu bar to 'CephFS' under 'Ceph'. Click on the 'Create CephFS' button to initialize CephFS with two auto-created pools. Then create one MDS (Metadata Server) for each node using the 'Create MDS' button. Assume the following setup for CephFS:
 
-* CephFS
-  |   Name   |   Data Pool   |   Metadata Pool   |
-  | --- | --- | --- |
-  |   cephfs   |   cephfs_data   |   cephfs_metadata   |
+##### CephFS  
+|   Name   |   Data Pool   |   Metadata Pool   |
+| --- | --- | --- |
+|   cephfs   |   cephfs_data   |   cephfs_metadata   |
 
-* MDS
+##### MDS  
   |   Name   |   Host   |   Address   |
   | --- | --- | --- |
-  |   pve0   |   pve0   |   10.0.1.10:\<auto-assigned port>/******   |
-  |   pve1   |   pve1   |   10.0.1.11:\<auto-assigned port>/******   |
-  |   pve2   |   pve2   |   10.0.1.12:\<auto-assigned port>/******   |
-  |   pve3   |   pve3   |   10.0.1.13:\<auto-assigned port>/******   |
-  |   pve4   |   pve4   |   10.0.1.14:\<auto-assigned port>/******   |
+  |   pve0   |   pve0   |   10.0.1.10:[auto-assigned port]/*******   |
+  |   pve1   |   pve1   |   10.0.1.11:[auto-assigned port]/*******   |
+  |   pve2   |   pve2   |   10.0.1.12:[auto-assigned port]/*******   |
+  |   pve3   |   pve3   |   10.0.1.13:[auto-assigned port]/*******   |
+  |   pve4   |   pve4   |   10.0.1.14:[auto-assigned port]/*******   |
 
 ### AutoFS to mount CephFS
 We want to mount CephFS on our servers to conveniently distribute our project resources across VMs and Servers. If we mount CephFS through /etc/fstab for our servers, the result would be catastrophic since CephFS requires Ceph and that Ceph requires enough quorom to function properly. Since our servers are also the hosts of CephFS, mounting CephFS on bootup would fail since quorom will only be established after the bootup. Therefore we should use AutoFS to mount CephFS only on demand (which is only possible after the bootup).
@@ -362,3 +375,185 @@ For standardization, we also set up AutoFS to mount CephFS onto our VMs.
 
 Useful Links:  
 * [Configuring HA Kubernetes Cluster](https://medium.com/faun/configuring-ha-kubernetes-cluster-on-bare-metal-servers-with-kubeadm-1-2-1e79f0f7857b)
+
+---
+## Enable Monitoring on OPNsense
+Monitoring of the kubernetes cluster can be done by deploying the prometheus-operator. However, the OPNsense VMs are outside of the kubernetes cluster. Thus, to allow monitoring on the OPNsense VMs, some configurations have to be done. OPNsense has a plugins feature and node exporter is available for installation on the machine.
+
+To install node exporter plugins on OPNsense, access the web interface and log in as root user.
+The plugins option can be found under **System > Firmware > Plugins**. Search for `os-node-exporter` and install it. Once installed, reboot the machine.
+
+Node exporter will now be available on the web interface under **Services**. Look for **Prometheus Exporter** and enable it. The Listen Address was set to the LAN IP address of the respective firewall LAN IP address, which is `10.0.1.6` and `10.0.1.7`. By default, the Listen Address is `0.0.0.0(all interfaces)`.
+
+Once the Prometheus Exporter is enabled, node exporter will start to export the host machine metrics. To verify that node exporter is working, access any machine within the LAN network and type `curl http://ip.add.re.ss:9100/metrics`. In this case, to verify the node exporter is working on the OPNsense VMs, simply enter `curl http://10.0.1.6:9100/metrics` for firewall 1 and `curl http://10.0.1.7:9100/metrics` for firewall 2.
+
+An example of the output of the command is as shown below:
+```
+# HELP go_gc_duration_seconds A summary of the GC invocation durations.
+# TYPE go_gc_duration_seconds summary
+go_gc_duration_seconds{quantile="0"} 6.5231e-05
+go_gc_duration_seconds{quantile="0.25"} 6.5231e-05
+go_gc_duration_seconds{quantile="0.5"} 8.886e-05
+...
+```
+
+The metrics of the OPNsense VMs is now ready to be scraped. In order for prometheus-operator to scrape from the OPNsense VMs, additional configuration is required. The instruction is available on the prometheus-operator [Github Page](https://github.com/coreos/prometheus-operator/blob/master/Documentation/additional-scrape-config.md).
+
+Create an yaml file and name it as `prometheus-additional.yaml`. The following configuration was used to scrap the metrics from our OPNsense VMs.
+```yaml
+- job_name: "firewall-node-exporter"
+  static_configs:
+          - targets: ["10.0.1.6:9100", "10.0.1.7:9100"]
+            labels:
+               namespace: "monitoring"
+               service: "node-exporter"
+```
+
+Targets refer to the IP address and port of the machine that prometheus will scrape the metrics from. Additional labels can be added in as well.
+
+Next, create a secret with the `prometheus-additional.yaml` with the following command.
+
+Note: namespace is set as `monitoring` because prometheus-operator is deployed under namespace `monitoring`.
+```
+kubectl create secret generic additional-scrape-configs --from-file=prometheus-additional.yaml --dry-run -oyaml --namespace=monitoring > additional-scrape-configs.yaml
+```
+
+`prometheus-additional.yaml` will be base64 encoded and input into a secret config file `additional-scrape-configs.yaml`
+As shown below is the `additional-scrape-configs.yaml` created by the `prometheus-additional.yaml`.
+```yaml
+apiVersion: v1
+data:
+  prometheus-additional.yaml: LSBqb2JfbmFtZTogImZpcmV3YWxsLW5vZGUtZXhwb3J0ZXIiCiAgc3RhdGljX2NvbmZpZ3M6CiAgICAgICAgICAtIHRhcmdldHM6IFsiMTAuMC4xLjY6OTEwMCIsICIxMC4wLjEuNzo5MTAwIl0KICAgICAgICAgICAgbGFiZWxzOgogICAgICAgICAgICAgICBuYW1lc3BhY2U6ICJtb25pdG9yaW5nIgogICAgICAgICAgICAgICBzZXJ2aWNlOiAibm9kZS1leHBvcnRlciIK
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: additional-scrape-configs
+  namespace: monitoring   
+  ```
+To check if the encoded text is the same as the `prometheus-additional.yaml`, the following command can be used to verify.
+```
+ echo "encoded text" | base64 --decode
+```
+
+Lastly, edit the `prometheus-prometheus.yaml` under the manifests folder of prometheus-operator folder and add in the following to the `spec` section.
+```yaml
+additionalScrapeConfigs:
+  name: additional-scrape-configs
+  key: prometheus-additional.yaml
+```
+
+Now deploy prometheus manifests folder and access the prometheus web interface. On the web interface, navigate to **Status > Targets**. firewall-node-exporter, the job_name for scraping from OPNsense VMs should be shown.
+
+---
+
+## Creating Alerting Rule on Prometheus
+The existing prometheus alerting rules does not include rules for OPNsense VMs. Prometheus will monitoring the specified alerting rules and trigger the alert if the condition of the rule is met. The alert will then be fired to Alertmanager, which will then send out notification to the user.
+
+The existing rules from prometheus-operator can be found in `prometheus-rules.yaml` under the manifests folder. Simply add on additional alerting rules in the yaml file under `spec >  group`
+The following alerting rules were added to `prometheus-rules.yaml` to trigger alerts for external nodes outside of the kubernetes cluster.
+
+```yaml
+- alert: InstanceDown
+  expr: up == 0
+  for: 1m
+  labels:
+    severity: critical
+  annotations:
+    summary: "Instance {{ $labels.instance }} down"
+    message: "{{ $labels.instance }} of job {{ $labels.job }} has been down for more than 1 minutes."
+- alert: CPUThresholdExceeded
+  expr: 100 - (avg by (instance) (irate(node_cpu_seconds_total{job="firewall-node-exporter",mode="idle"}[5m])) * 100) > 90
+  for: 3m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Instance {{ $labels.instance }} CPU usage is dangerously high"
+    message: "This device's CPU usage has exceeded the thresold of 90% with a value of {{ $value }} for 3 minutes."
+- alert: MemoryUsageWarning
+  expr:  ((node_memory_size_bytes - (node_memory_free_bytes + node_memory_cache_bytes + node_memory_buffer_bytes) ) / node_memory_size_bytes) * 100  > 80
+  for: 5m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Instance {{ $labels.instance }} Memory usage is high"
+    message: "This device's Memory usage has exceeded the thresold of 80% with a value of {{ $value }} for 5 minutes."
+- alert: DiskSpaceWarning
+  expr:  100 -  ((node_filesystem_free_bytes  * 100 / node_filesystem_size_bytes))  > 75
+  for: 60m
+  labels:
+    severity: warning
+  annotations:
+    summary: "Instance {{ $labels.instance }} Disk usage is high"
+    message: "This device's Disk usage has exceeded the thresold of 75% with a value of {{ $value }}."
+```
+Note: The alerting rule for MemoryUsageWarning has a different expr as the metrics exposed are from FreeBSD, which is the OS for OPNsense. FreeBSD is a Unix-like Platform. Thus, the naming of the metrics is slightly different compared to Linux platform. A typical expr for high memory usage on a Linux platform is `(((node_memory_MemTotal - node_memory_MemFree - node_memory_Cached) / (node_memory_MemTotal) * 100))`
+
+Add-on: Instruction on integrating Slack with Alertmanager can be found [here](https://github.com/CloudCommandos/Raspclouds/blob/master/My-Doc/kubernetes.md). The alerts will be forward to Slack when prometheus fires to Alertmanager.
+
+---
+## Additional Dashboard On Grafana
+With the existing configurations of prometheus-operator, Grafana already have dashboards available to present a better visualization on monitoring prometheus data. To add on more dashboard on Grafana, you can either create your own or import existing dashboard from [Grafana site](https://grafana.com/dashboards).  
+
+In order to have a dashboard to monitoring the OPNsense VMs, we need to find a dashboard that can read FreeBSD metrics. Click [here](https://grafana.com/dashboards/4260) to download the dashboard to monitor the OPNsense VMs. A slight amendment on the json file for the dashboard is required to direct its path to the job name of our OPNsense VMs.
+
+Open up the json file and search for the word `job` and replace the job variable:
+```
+"query": "label_values(node_time_seconds{job=\"firewall-node-exporter\"}, instance)",
+```
+This is to direct the query to the **job_name** which we have specified in `prometheus-additional.yaml`.  Once this is done, the dashboard to monitor OPNsense should be ready.
+
+---
+## Cloud Image Template setup
+It is a tedious process to go through the installation setup and also having to log in to the VM to create user accounts when deploying new VMs. Cloud-init images is able to eliminate these problems by providing the function of creating user accounts on bootup based on user input.  
+
+The following details the steps taken to create a cloud-init image template of a distribution to be use for the deployment of VMs. All the commands will be run on the Proxmox node where the template will reside:  
+
+1. Search for a certified cloud-init image of the distribution(OS) and use `wget` function to download it on to the Proxmox node
+   ```
+   wget https://cloud-images.ubuntu.com/bionic/current/bionic-server-cloudimg-amd64.img
+   ```
+1. Create a new VM which will eventually be converted into a template (for this setup guide, VM with ID number 9000 is used)
+   ```
+   qm create 9000 --memory 2048 --net0 virtio,bridge=vmbr0
+   ```
+1. Import the downloaded cloud image to the local storage or shared storage
+   ```
+   qm importdisk 9000 bionic-server-cloudimg-amd64.img local-zfs
+   ```
+1. Attached the new disk to the VM as scsi drive
+   ```
+   qm set 9000 --scsihw virtio-scsi-pci --scsi0 local-zfs:vm-9000-disk-0
+   ```
+1. Configure a local CDROM drive to pass the cloud-init data to the VM
+   ```
+   qm set 9000 --ide2 local-zfs:cloudinit
+   ```
+1. Speed up the booting process by setting the boot parameters of the VM to boot directly from the Cloud-Init image
+   ```
+   qm set 9000 --boot c --bootdisk scsi0
+   ```
+1. Configure a serial console to be use as a display. This step is required because most cloud-init images rely on this to work
+   ```
+   qm set 9000 --serial0 socket --vga serial0
+   ```
+1. Convert the VM into a template
+   ```
+   qm template 9000
+   ```
+At this point, the template of the cloud-init image will be created. The template will appear on the Proxmox GUI under the corresponding node which the above setup is run on. Next is to use the template to deploy VM in the Proxmox cluster.  
+
+Run the following steps on the Proxmox GUI:  
+
+1. `Right-click` on the template and select the `clone` function to deploy a new VM
+
+1. For migration to work on VM, select `full-clone` function instead of `linked-clone` function
+
+1. Once the VM is successfully cloned, navigate to the VM's `cloud-init` tab and fill in the necessary information for the creation of a User account
+
+1. Boot up the VM and it will be ready for use with the User account created
+
+Do take note that the password function will not work for Debian cloud image, therefore the workaround is to fill in the SSH public key segment using the Proxmox node's public key and subsequently `ssh` into the VM to create a password for the User.  
+
+Nameserver also has to be added manually into `/etc/resolv.conf` file for the Debian cloud image. Add `nameserver 8.8.8.8` into the file so that the VM will be able to access the internet.  
+
+---

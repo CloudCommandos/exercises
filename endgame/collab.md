@@ -276,9 +276,7 @@ deadtime 10
 #       What UDP port to use for udp or ppp-udp communication?
 #
 udpport        694
-bcast  ens18
 mcast ens18 225.0.0.1 694 1 0
-ucast ens18 <current node IP>
 #       What interfaces to heartbeat over?
 udp     ens18
 #

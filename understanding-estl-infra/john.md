@@ -50,3 +50,11 @@ nginx-periodic-reload.sh
 scripts running ssh ?  
 
 
+## Questions
+1. May we know what options are passed to the K8s master components for your production environment? E.g. your /etc/kubernetes/manifests/kube-apiserver.yaml etc if you used kubeadm to intialize your k8s cluster, or /etc/systemd/system/kube-apiserver.service if you went "The Hard Way".
+
+2. If you went "The Hard Way", is there a script written for the initialization of your K8s cluster that we can look into?
+
+3. How is K8s cluster upgrading handled?
+
+4. Are customers allowed to access the K8s cluster? If so, what is the access topology like and how is it implemented? E.g. Management of shared services, private namespaces, K8s resources etc.

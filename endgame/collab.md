@@ -351,7 +351,7 @@ chmod -R 770 /root/secrets
 
 Install AutoFS
 ```bash
-sudo apt-get autofs
+sudo apt-get install autofs
 ```
 
 Add the following into `/etc/auto.master`

@@ -18,7 +18,7 @@ Pros:
 
 Cons:  
 1. Less secure due to isolation at a higher level
-1. Only Containers of the same OS can be hosted on the same server (deployment constrain)
+1. Only Containers of the same OS family can be hosted on the same server/vm (deployment constrain)
 1. Isolation level constrained by networking requirements
 
 ### Different types of Containers in the wild
